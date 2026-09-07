@@ -524,22 +524,19 @@ describe("reflow safety is driven by the line-shape registry", () => {
   // and on a paragraph's first SOURCE line nothing guards the reverse
   // direction either. Both are recorded below.
 
-  // KNOWN GAP (dlist support, tracked with #9 / follow-up issue TBD).
   // `read_lines_for_list_item` matches DescriptionListRx against the
-  // whole line, so any continuation line of a list item that carries
-  // a `::` word opens a nested description list, wherever the word
-  // sits. Wrapping an item whose text contains one therefore changes
-  // the rendering, and no line-START rule can prevent it: the fix is
-  // to keep such a word on the item's first output line (or to parse
-  // and print the dlist properly). Predates this task.
-  test.fails(
-    "wrapping a list item never invents a description list",
-    async () => {
-      const input = "* aa bb cc dd ee ff term:: gg\n";
-      const options = { printWidth: 20 };
-      await expectStableRender(input, options);
-    },
-  );
+  // WHOLE line, so a continuation line of a list item that carries a
+  // `::` word opens a nested description list wherever the word sits,
+  // and no line-START rule can see it. This row was `test.fails` for
+  // exactly that reason until the packer stopped asking about words:
+  // the line the wrap would write reads as a description item, the
+  // block has no layout the reader reads back, and the item's own
+  // source lines are written instead.
+  test("wrapping a list item never invents a description list", async () => {
+    const input = "* aa bb cc dd ee ff term:: gg\n";
+    const options = { printWidth: 20 };
+    await expectStableRender(input, options);
+  });
 
   // The same rule seen from the LINE the term sits on: in a list
   // item Asciidoctor matches DescriptionListRx against the whole

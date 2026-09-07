@@ -29,7 +29,13 @@ import { canonicalAttrlist } from "../parse/attrlist.js";
 import { ASCII_NON_WHITESPACE, rstrip } from "../parse/line-shapes.js";
 import { MARKER_OFFSET, MIN_DELIMITER_LENGTH } from "../constants.js";
 import { inlineAtoms } from "./inline.js";
-import { atomOf, blockBody, type Atom } from "./reflow.js";
+import {
+  atomOf,
+  blockBody,
+  blockLayout,
+  replayLines,
+  type Atom,
+} from "./reflow.js";
 import { joinBlocks } from "./join.js";
 
 const {
@@ -595,7 +601,25 @@ export function printAdmonition(
       { ...body[0], glueLeft: false, noBreakBefore: true },
       ...body.slice(1),
     ];
-    return blockBody(atoms, options.printWidth, 0);
+    return blockBody(
+      atoms,
+      options.printWidth,
+      0,
+      blockLayout(
+        // From the LABEL, because the label is an atom of the packed
+        // run rather than a prefix written in front of it: the
+        // block's first output line opens where the node does.
+        replayLines(
+          node.text,
+          options.originalText,
+          node.position.start.offset,
+        ),
+        node.reading,
+        // The label holds the column, so what the first line opens is
+        // not the packer's to answer.
+        false,
+      ),
+    );
   }
   return printDelimitedParent(
     { variant: node.form, children: node.children },

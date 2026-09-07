@@ -1568,18 +1568,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n\n+\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n\n+\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
       "document": "* a\n\n.T\n  ** z\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -3458,18 +3446,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n  lit\n+\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n  lit\n+\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
       "document": "* a\n  lit\n.T\n\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -4554,18 +4530,6 @@
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n* a\n+\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n* a\n+\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
     },
     {
       "document": "* a\n* a\n.T\n\n\n+\n",
@@ -6626,18 +6590,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n+\n\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\n\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
       "document": "* a\n+\n  ** z\n\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -8120,18 +8072,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n+\n.T\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\n.T\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
       "document": "* a\n+\n// c\n\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -8216,18 +8156,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n+\n// c\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\n// c\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
       "document": "* a\n+\n[[anc]]\n\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -8274,18 +8202,6 @@
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n+\n[[anc]]\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\n[[anc]]\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
     },
     {
       "document": "* a\n+\n[role]\n\n\n+\n",
@@ -8336,18 +8252,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n+\n[role]\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\n[role]\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
       "document": "* a\n+\npara\n\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -8378,34 +8282,10 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n+\npara\n  ** z\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n  ** z\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
       "document": "* a\n+\npara\n  lit\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n+\npara\n  lit\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n  lit\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
     },
     {
       "document": "* a\n+\npara\n* a\n\n+\n",
@@ -8420,90 +8300,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n+\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n** b\n  ** z\n\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n** b\n  ** z\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n** b\n  ** z\n  lit\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n** b\n  ** z\n* a\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n** b\n  ** z\n** b\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n** b\n  ** z\n+\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n** b\n  ** z\n.T\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n** b\n  ** z\n// c\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n** b\n  ** z\n[[anc]]\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n** b\n  ** z\n[role]\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n** b\n  ** z\npara\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n** b\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n** b\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
       "document": "* a\n+\npara\n+\n+\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -8516,106 +8312,10 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n+\npara\n.T\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n.T\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
       "document": "* a\n+\npara\n// c\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n+\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n// c\n  ** z\n\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n// c\n  ** z\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n// c\n  ** z\n  lit\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n// c\n  ** z\n* a\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n// c\n  ** z\n** b\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n// c\n  ** z\n+\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n// c\n  ** z\n.T\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n// c\n  ** z\n// c\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n// c\n  ** z\n[[anc]]\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n// c\n  ** z\n[role]\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n// c\n  ** z\npara\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n// c\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\n// c\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
     },
     {
       "document": "* a\n+\npara\n[[anc]]\n\n+\n",
@@ -8634,18 +8334,6 @@
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n+\npara\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n+\npara\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
     },
     {
       "document": "* a\n.T\n\n\n\n+\n",
@@ -9312,18 +9000,6 @@
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n.T\n+\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n.T\n+\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
     },
     {
       "document": "* a\n.T\n.T\n\n\n+\n",
@@ -10296,18 +9972,6 @@
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n+\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n// c\n+\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
     },
     {
       "document": "* a\n// c\n.T\n\n\n+\n",
@@ -11364,18 +11028,6 @@
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n[[anc]]\n+\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n[[anc]]\n+\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
     },
     {
       "document": "* a\n[[anc]]\n.T\n\n\n+\n",
@@ -12464,18 +12116,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n[role]\n+\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\n[role]\n+\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
       "document": "* a\n[role]\n.T\n\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -13560,18 +13200,6 @@
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\npara\n+\npara\n** b\n  ** z\n",
-      "pass": "p1",
-      "signature": "[text] -> [textv]",
-      "family": "prose-reads-as-marker"
-    },
-    {
-      "document": "* a\npara\n+\npara\n// c\n  ** z\n",
-      "pass": "p1",
-      "signature": "[] -> [textv]",
-      "family": "prose-reads-as-marker"
     },
     {
       "document": "* a\npara\n.T\n\n\n+\n",

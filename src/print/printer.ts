@@ -29,7 +29,7 @@ import {
   blockWhitespace,
   PLAIN_WHITESPACE_CONTEXT,
 } from "../whitespace-fact.js";
-import { blockBody } from "./reflow.js";
+import { blockBody, blockLayout, replayLines } from "./reflow.js";
 import { joinBlocks } from "./join.js";
 import { printsSourceAttributeLine } from "../block-metadata.js";
 import {
@@ -244,13 +244,22 @@ const printer: Printer<AnyNode> = {
           ),
           options.printWidth,
           0,
+          blockLayout(
+            replayLines(node.children, options.originalText),
+            node.reading,
+            // A paragraph at document level: nothing stands in front
+            // of its first output line, so that line is one the
+            // reader classifies at a block start and the packer is
+            // the only thing that can answer for it.
+            true,
+          ),
         );
       }
       case "list": {
         return printList(node, path, print, options);
       }
       case "listItem": {
-        return printListItem(node, path, print, options.printWidth);
+        return printListItem(node, path, print, options);
       }
       // NO print width for the LIST, which writes only the separator
       // between two items. The ITEM takes one and reads it on the one
@@ -301,6 +310,11 @@ const printer: Printer<AnyNode> = {
           ),
           options.printWidth,
           0,
+          // NO READER BUILDS SUCH A BLOCK either, so there is no
+          // recorded reading and no source lines to write back
+          // instead: the packer's layout stands, whatever the reader
+          // would make of it.
+          { replay: "none" },
         );
       }
     }

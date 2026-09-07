@@ -134,10 +134,24 @@
   },
   {
     "file": "src/line-verdict.ts",
+    "symbol": "FIRST_CONTINUATION",
+    "importer": "src/print/reflow.ts",
+    "kind": "vocabulary",
+    "reason": "the position spelling the verdict takes, so the packer names the line directly under the block's first the same way the reader's tables key on it"
+  },
+  {
+    "file": "src/line-verdict.ts",
     "symbol": "LATER_CONTINUATION",
     "importer": "src/parse/lines/paragraph-reader.ts",
     "kind": "vocabulary",
     "reason": "the same position spelling for every line below that one; the two constants are one alphabet and the scan may not spell a third value"
+  },
+  {
+    "file": "src/line-verdict.ts",
+    "symbol": "LATER_CONTINUATION",
+    "importer": "src/print/reflow.ts",
+    "kind": "vocabulary",
+    "reason": "the same position spelling for every line below that one; the two constants are one alphabet and the packer may not spell a third value"
   },
   {
     "file": "src/line-verdict.ts",
@@ -155,10 +169,24 @@
   },
   {
     "file": "src/line-verdict.ts",
+    "symbol": "accepts",
+    "importer": "src/print/reflow.ts",
+    "kind": "vocabulary",
+    "reason": "the reader's own verdict on one line at one position, asked of the line the packer is about to write, so the printer cannot hold a second opinion about what a line means"
+  },
+  {
+    "file": "src/line-verdict.ts",
     "symbol": "continuationPosition",
     "importer": "src/parse/lines/paragraph-reader.ts",
     "kind": "vocabulary",
     "reason": "the one producer of the context a block's continuation lines are read in; the scan and the printer's packer call it so the five fixed fields have one spelling"
+  },
+  {
+    "file": "src/line-verdict.ts",
+    "symbol": "continuationPosition",
+    "importer": "src/print/reflow.ts",
+    "kind": "vocabulary",
+    "reason": "the one producer of the context a block's continuation lines are read in; the packer asks in the same context the scan read them in"
   },
   {
     "file": "src/line-verdict.ts",
@@ -173,6 +201,13 @@
     "importer": "src/parse/lines/paragraph-reader.ts",
     "kind": "vocabulary",
     "reason": "THE verdict on one line at one position; the scans call it for their own reading so the printer's packer and the reader cannot come to disagree about what a line means"
+  },
+  {
+    "file": "src/line-verdict.ts",
+    "symbol": "openingPosition",
+    "importer": "src/print/reflow.ts",
+    "kind": "vocabulary",
+    "reason": "the position of a block's OPENING line, so the packer asks what its first output line opens in the same context the reader classified that line in"
   },
   {
     "file": "src/mark-record.ts",
@@ -1783,6 +1818,13 @@
     "importer": "src/parse/lines/item-body.ts",
     "kind": "vocabulary",
     "reason": "the reading a prose node records, as an item's interior carries it from the confined read to the builder"
+  },
+  {
+    "file": "src/reader-context.ts",
+    "symbol": "BlockReading",
+    "importer": "src/print/reflow.ts",
+    "kind": "vocabulary",
+    "reason": "the reading a prose node records, as the packer's layout input declares it"
   },
   {
     "file": "src/reader-context.ts",

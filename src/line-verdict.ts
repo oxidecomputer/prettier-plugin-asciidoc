@@ -63,12 +63,14 @@ import type { ReaderContext } from "./parse/line-shapes.js";
 import { classifyLine, type LineKind } from "./parse/lines/classify.js";
 
 /**
- * The block's own opening line.
+ * The block's own opening line. The reader's scans never ask about
+ * one: their block's first line is consumed before the scan runs, and
+ * the asker is the printer's packer, whose first output line stands
+ * where the reader classified a block start.
  *
- * Exported for the verdict's unit rows
- * (tests/parser/line-verdict.test.ts), which are the only caller that
- * asks about an opening line so far; the reader's scans never do,
- * because their block's first line is consumed before the scan runs.
+ * Src reaches it through {@link openingPosition}, which is what a
+ * caller wants; the name itself is imported by the verdict's unit
+ * rows (tests/parser/line-verdict.test.ts).
  * @internal
  */
 export const OPENING_LINE = 0;
@@ -94,9 +96,9 @@ export const LATER_CONTINUATION = 2;
  * recorded style and a recorded gap, so only the marker can come back
  * as a different one.
  *
- * Exported for the verdict's unit rows
- * (tests/parser/line-verdict.test.ts); no src consumer yet, because
- * only an asker about an opening line builds one.
+ * Named by {@link openingPosition}'s signature, which is how src
+ * builds one; imported by name only from the verdict's unit rows
+ * (tests/parser/line-verdict.test.ts).
  * @internal
  */
 export type BlockOpening =
@@ -121,9 +123,10 @@ export type BlockOpening =
  * question is whether the line is the block's own text, and no
  * recorded verdict enters it.
  *
- * Exported for the verdict's unit rows
- * (tests/parser/line-verdict.test.ts); the reader's scans build the
- * value as a literal at the call.
+ * Named by {@link continuationPosition}'s and
+ * {@link openingPosition}'s signatures, which is how src builds one;
+ * imported by name only from the verdict's unit rows
+ * (tests/parser/line-verdict.test.ts).
  * @internal
  */
 export type BlockPosition =
@@ -183,6 +186,50 @@ function continuationContext(reading: BlockReading): ReaderContext {
     substitutedContentAbove: false,
     markerLineWins: false,
     attributeRun: "runIsInTheItem",
+  };
+}
+
+/**
+ * The position of a block's OPENING line, from the reading the reader
+ * recorded and what that line was read as.
+ *
+ * Three of the five fixed fields are the same as at a continuation
+ * position and for the same reasons ({@link continuationContext}).
+ * The other two differ, and both are narrowing rather than a claim:
+ *
+ * - `openParagraph` is undefined, because this line is classified at
+ *   a block START, which is where the reader classified it.
+ * - `substitutedContentAbove` is false, which is the WIDER of its two
+ *   readings: nine block-start rules are held off while it is true
+ *   (lines/classify.ts), so false lets them all fire. A block under a
+ *   substituting directive is therefore asked a question the reader
+ *   did not ask of it, which can only turn an accepted line into a
+ *   refused one, and a refused line writes the block's own bytes
+ *   back. Measured on the corpus and on the depth-5 product: no block
+ *   is replayed for this reason.
+ * - `markerLineWins` is false for the same shape of reason: it
+ *   decides between two block-start readings of a marker line, and
+ *   the wider reading refuses more.
+ * @param reading - what the reader recorded about the block
+ * @param opens - what its opening line was read as
+ * @returns the position {@link accepts} takes
+ */
+export function openingPosition(
+  reading: BlockReading,
+  opens: BlockOpening,
+): BlockPosition {
+  return {
+    ordinal: OPENING_LINE,
+    reader: {
+      openParagraph: undefined,
+      openList: reading.openList,
+      firstLineAfterStart: false,
+      nextLine: undefined,
+      substitutedContentAbove: false,
+      markerLineWins: false,
+      attributeRun: "runIsInTheItem",
+    },
+    opens,
   };
 }
 
@@ -325,12 +372,6 @@ function opensTheSameBlock(verdict: LineKind, opening: BlockOpening): boolean {
  *   the block, or undefined at the end of the document)
  * @param position - where the line stands; see {@link BlockPosition}
  * @returns true when the reader reads the line as this block
- *
- * Exported for the verdict's unit rows
- * (tests/parser/line-verdict.test.ts). The reader's own scans read
- * {@link keepsTheLine} instead, which is the one reading that differs
- * between the two askers.
- * @internal
  */
 export function accepts(
   line: string,

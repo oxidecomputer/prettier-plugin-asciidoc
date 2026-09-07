@@ -27,7 +27,7 @@ import type {
 } from "../ast.js";
 import { inlineAtoms } from "./inline.js";
 import { gapParts, tailParts } from "./list.js";
-import { atomOf, blockBody } from "./reflow.js";
+import { atomOf, blockBody, blockLayout } from "./reflow.js";
 import type { PrintFunction, PrintPath } from "./blocks.js";
 
 const {
@@ -202,6 +202,19 @@ function closingLines(
         ],
         printWidth,
         0,
+        blockLayout(
+          // The item's own source, and the same bytes the `"replay"`
+          // arm above writes: the term LINE holds its indent, its
+          // delimiter and whatever description shared it
+          // (`DescriptionTermNode.line`, src/ast.ts), and `textLines`
+          // holds the lines under it. The gap is not among them
+          // because this arm is only reached for an item whose last
+          // term's gap is EMPTY.
+          [entry.term.line, ...node.textLines],
+          node.reading,
+          // The term holds the column of the first output line.
+          false,
+        ),
       );
     }
   }

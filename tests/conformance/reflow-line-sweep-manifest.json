@@ -1,14 +1,14 @@
 {
   "hard-break/fidelity": {
-    "count": 5,
+    "count": 6,
     "examples": [
       "* a\\n +\\n +\\n  lit\\n",
+      "* a\\n +\\n +\\n +\\n",
       "* a\\n// c\\n  lit\\n +\\n",
       "* a\\n// c\\n +\\n  lit\\n",
-      "* a\\n[[anc]]\\n  lit\\n +\\n",
-      "* a\\n[[anc]]\\n +\\n  lit\\n"
+      "* a\\n[[anc]]\\n  lit\\n +\\n"
     ],
-    "sha256": "dcaa2c0b15dbf7a544a9b7abeda3064cb4737e1d25ca630b82a3044dfd61a98e",
+    "sha256": "b6b5c56c81a712aa55f6a1ca6db22f78d7de4a6a58e6ed4f1d5e6146e65dadc8",
     "issue": "#304"
   },
   "hard-break/idempotency": {
@@ -24,15 +24,15 @@
     "issue": "#301"
   },
   "hard-break/idempotency+fidelity": {
-    "count": 17,
+    "count": 16,
     "examples": [
       "* a\\n  ** z\\n +\\n +\\n",
       "* a\\n  lit\\n +\\n  lit\\n",
       "* a\\n +\\n +\\n",
       "* a\\n +\\n +\\n  ** z\\n",
-      "* a\\n +\\n +\\n +\\n"
+      "* a\\n +\\n +\\n* a\\n"
     ],
-    "sha256": "4e5711f9bc57117ecf2c01db354e47583c91eba3f5b8c5621f84585c80d7f8c8",
+    "sha256": "ce79037b10b07a2ae09fb19dadb06403426af1e64e57e5d74228464a7aa1ede1",
     "issue": "#304"
   },
   "indented-two-line/fidelity": {

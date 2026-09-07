@@ -376,27 +376,14 @@ describe("the lens sees each corruption, and one arm names it", () => {
   // is empty in the ledger. That mechanism has no second document
   // either - every spelling of it was the same emission.
   test.each([
-    // `===\n ----\n` used to stand here and no longer does: the
-    // block-start hazard net writes the second line's own indent back
-    // ({@link ParagraphNode.secondLineIndent}), so that document
-    // round-trips. The family's other arm is still live - the net
-    // bails on a first atom that may not end a line, and a lone `+` is
-    // exactly that, so the indent under it is still dropped.
-    [
-      "a de-indented line becomes a block (#121)",
-      "+\n ----\n",
-      "indent-dropped",
-    ],
-    [
-      // The same mechanism, one respelling later, and the row no arm
-      // claimed until the arm stopped comparing whole line counts
-      // (issue #248): the de-indented line here is a fence, so the
-      // output spells it `[source]` over a `----` pair and comes out
-      // longer than the source it corrupted.
-      "the de-indented line is a fence (#121)",
-      "+\n ```x -> y\n```\n",
-      "indent-dropped",
-    ],
+    // `===\n ----\n`, `+\n ----\n` and `+\n ```x -> y\n```\n` used to
+    // stand here and no longer do. The first went when the
+    // block-start hazard net began writing the second line's own
+    // indent back ({@link ParagraphNode.secondLineIndent}); the other
+    // two went when the packer began asking the reader whether the
+    // line it is about to write is still the block's own text, which
+    // is what the net could not see from a first atom that may not
+    // end a line. `indent-dropped` has no document left.
     [
       // TWO changes inside one diff: a hard break keeps the item's
       // second line from joining, so its indent goes AND the `+`
@@ -607,7 +594,16 @@ describe("the family arms are told apart by what they say", () => {
       "a fence language that is an arrow pair",
       "term::\n```x -> y\n---------\n",
     ],
-    ["a block macro whose attrlist holds one", "image::a.png[a -> b\n[+1]\n"],
+    [
+      // Respelt for the reason the paragraph above gives, one more
+      // time: `image::a.png[a -> b\n[+1]` was a wrap re-reading its
+      // own first output line as a block attribute list, and the
+      // packer asks the reader about that line now, so the document
+      // round-trips and asserted nothing. The arrow sits in the same
+      // place over the `blank-dropped` mechanism instead.
+      "a block macro whose attrlist holds one",
+      "term::\nimage::a.png[a -> b]\n\n\n[.role]\n",
+    ],
   ])("%s is claimed by exactly one arm", async (_name, source) => {
     const outcome = await reparseOutcomeOf(source);
     // The row is a breach at all: a document that round-trips would

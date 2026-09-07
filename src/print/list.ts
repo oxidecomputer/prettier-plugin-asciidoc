@@ -25,7 +25,9 @@ import {
   type Atom,
   blockBody,
   keepFirstSourceLineWhole,
+  blockLayout,
   keepTextOnFirstRestLine,
+  replayLines,
 } from "./reflow.js";
 import {
   printedText,
@@ -642,15 +644,18 @@ function markInFrontOfText(node: ListItemNode): MarkInFront | undefined {
  * @param path - Prettier's AST path, used to recurse
  *   into the text and blocks and access the parent list node.
  * @param print - Prettier's recursive print callback.
- * @param printWidth - the column budget for a whole output line.
+ * @param options - the print options: the column budget for a whole
+ *   output line, and the source the item's own text lines are
+ *   replayed from where no layout of them reads back as its text.
  * @returns Doc IR for the formatted list item.
  */
 export function printListItem(
   node: ListItemNode,
   path: PrintPath,
   print: PrintFunction,
-  printWidth: number,
+  options: PrintOptions,
 ): Doc {
+  const { printWidth } = options;
   // KEPT, deliberately. `getParentNode()` is typed over the whole
   // node union, and an item's parent is a list by construction — the
   // reader builds items only into `ListNode.children`. The narrowing
@@ -702,6 +707,17 @@ export function printListItem(
       guardedAtoms(node, parentList, atoms, guard),
       printWidth,
       markerWidth + checkboxWidth,
+      blockLayout(
+        // The item's TEXT, from its first inline node to its last:
+        // the marker, its gap and any checkbox stand in front of the
+        // first of those lines and are written by this function
+        // rather than by the packer, so they are not part of what a
+        // replay writes back.
+        replayLines(node.text, options.originalText),
+        node.reading,
+        // The marker holds the column of the first output line.
+        false,
+      ),
     ),
   ];
 

@@ -1776,11 +1776,17 @@ The family NAMES are enumerated in `tests/lib/reading-ledger.ts`.
 `continuation-dropped` is the rarest of the three families that currently hold
 any.
 
-It was 2,897 rows one change earlier, before #161 widened the sweep's alphabet
-with an indented nested marker (`"  ** z"`). The wider alphabet's larger depth-5
-product added 859 lone-plus-join rows, and, for the first time, put
-prose-reads-as-marker rows in the ledger at all: 62 of them, in the two
-signatures the family's mechanism produces (see below).
+It was 2,374 rows one change earlier, and 62 went in one move: the packer began
+asking the reader whether the line it is about to write is still the block's own
+text, so a paragraph whose layout would move an indented nested marker to a
+column the author did not write it at is written back from its own source lines
+instead. That emptied prose-reads-as-marker.
+
+It was 2,897 rows one change before THAT, before #161 widened the sweep's
+alphabet with an indented nested marker (`"  ** z"`). The wider alphabet's
+larger depth-5 product added 859 lone-plus-join rows, and, for the first time,
+put prose-reads-as-marker rows in the ledger at all: 62 of them, in the two
+signatures that family's mechanism produced (see below).
 
 It was 2,945 one change before THAT, and 48 rows went for one reason: the
 post-loop pop now recognises the `+` lines Ruby's own marker test recognises. A
@@ -1817,22 +1823,24 @@ lives - not restated here, so it cannot go stale in a second place.
 A family with no rows STAYS in the enumeration. It is what the classifier
 reaches for when the mechanism comes back, so deleting it would turn a
 regression into an unnamed signature the generator refuses to write rather than
-a row that names the issue. admonition-colon-run and tail-reading-flip are empty
-today; prose-reads-as-marker is not (see below).
+a row that names the issue. admonition-colon-run, tail-reading-flip and
+prose-reads-as-marker are empty today.
 
-prose-reads-as-marker held zero rows until #161 widened the sweep's alphabet,
-for a reason worth stating, because it is not the reason the other two families
-are empty: the mechanism reproduces, and the sweep's alphabet simply had nothing
-able to spell it. Every symbol in `ALPHABET` started at column 0 except `  lit`,
-whose de-indented form is still prose, so no product document put an INDENTED
-marker where the printer could drop its indent. With an indented marker
-(`"  ** z"`) added, the depth-5 product spells 62 rows of it, in two signatures:
-`[text] -> [textv]` (32 rows) and `[] -> [textv]` (30 rows, the de-indented line
-itself, inside a paragraph a `+` attached, where the empty left side is the
-folded prose line that had no token to lose). No row lands on the third
-signature a block-start flip would produce (`[text] -> [marker:unordered:*]`) in
-the measured product. Those rows joined the ledger with the alphabet that spells
-them, not before.
+prose-reads-as-marker is the one of the three whose emptiness has been read two
+ways, so both are worth stating. It held zero rows until #161 widened the
+sweep's alphabet, and that was BLINDNESS: the mechanism reproduced, and the
+alphabet simply had nothing able to spell it, since every symbol in `ALPHABET`
+started at column 0 except `  lit`, whose de-indented form is still prose. With
+an indented marker (`"  ** z"`) added, the depth-5 product spelt 62 rows of it,
+in two signatures: `[text] -> [textv]` (32 rows) and `[] -> [textv]` (30 rows,
+the de-indented line itself, inside a paragraph a `+` attached, where the empty
+left side is the folded prose line that had no token to lose). No row landed on
+the third signature a block-start flip would produce
+(`[text] -> [marker:unordered:*]`) in the measured product. It is empty again
+now, and this time the mechanism is gone rather than unspellable: the packer
+refuses a layout the reader would read differently and writes those blocks back
+as the author wrote them, so the 62 documents the alphabet spells are fixed
+points.
 
 To refresh after a fix: `bun run reading-ledger --write`, then say in the commit
 which family shrank and why. Expect large generated diffs tied to one-line

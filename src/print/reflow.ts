@@ -35,6 +35,15 @@
  *    text.
  */
 import { doc, util, type Doc } from "prettier";
+import type { InlineNode } from "../ast.js";
+import {
+  accepts,
+  continuationPosition,
+  FIRST_CONTINUATION,
+  LATER_CONTINUATION,
+  openingPosition,
+} from "../line-verdict.js";
+import type { BlockReading } from "../reader-context.js";
 import {
   DLIST_SEPARATOR_WORD,
   LINE_COMMENT_HEAD,
@@ -205,6 +214,263 @@ function runBreak(
 }
 
 /**
+ * What the packer needs about the block beyond its atoms: the reading
+ * the reader took its lines in, and the lines themselves.
+ *
+ * The reading is what makes the packer's own output line answerable -
+ * a line means one thing inside a paragraph and another inside a list
+ * item's text, and only the reader knows which
+ * ({@link BlockReading}, src/reader-context.ts). The lines are what it
+ * writes instead when no line it would write reads back as this
+ * block's own text.
+ *
+ * TWO ARMS, because a block with no lines to write back is not a
+ * block with an empty replay: it is one the question is never asked
+ * of, and the layout it gets stands whatever the reader would make of
+ * it. The only such block is one the printer assembles from a node no
+ * reader read as a block of its own, where there is nothing to
+ * replay and no recorded reading to ask in.
+ *
+ * Built by {@link blockLayout}; every src caller passes its result to
+ * {@link blockBody}, so the name itself is imported only by the
+ * packer's unit rows (tests/print/reflow.test.ts).
+ * @internal
+ */
+export type BlockLayout =
+  | {
+      /** Nothing to write back; the packer's layout stands. */
+      readonly replay: "none";
+    }
+  | {
+      /**
+       * The block's own source lines, in order, with the first line
+       * starting where the block's content does (past any prefix the
+       * caller writes in front of it).
+       */
+      readonly replay: readonly [string, ...string[]];
+      /** How the reader read this block. */
+      readonly reading: BlockReading;
+      /**
+       * Whether the block's FIRST output line stands at column 0 with
+       * nothing written in front of it, so the reader classifies it
+       * at a block start and the packer may ask what it opens.
+       *
+       * False for every block whose caller writes a prefix there (a
+       * list item's marker, an admonition's label, a description
+       * item's term): what that line opens is decided partly by bytes
+       * the packer did not lay out, and the nets that answer for it
+       * are the atom-level ones (src/print/block-start-hazard.ts,
+       * src/print/list-hazard.ts).
+       */
+      readonly opensItsOwnLine: boolean;
+    };
+
+/**
+ * A block's layout input, from the lines it would be replayed from.
+ * @param replay - the block's own source lines, or none
+ * @param reading - how the reader read the block
+ * @param opensItsOwnLine - see {@link BlockLayout}
+ * @returns the layout the packer takes
+ */
+export function blockLayout(
+  replay: readonly string[],
+  reading: BlockReading,
+  opensItsOwnLine: boolean,
+): BlockLayout {
+  const [first, ...rest] = replay;
+  return replay.length === 0
+    ? { replay: "none" }
+    : { replay: [first, ...rest], reading, opensItsOwnLine };
+}
+
+/**
+ * The source lines a block is replayed from: its own bytes, from the
+ * first inline node's start to the last one's end.
+ *
+ * VERBATIM, indents and all, and that is the whole of the replay
+ * contract for the blocks this printer packs. A replayed line has to
+ * keep the reading it had, and a line's reading is decided by the line
+ * INCLUDING its leading run (`indented = this_line.start_with? ' '`,
+ * parser.rb l.572, is what makes ` ----` paragraph text and `----` a
+ * listing block). The blocks that reach the packer are printed back at
+ * the column they were read at - a list item replays its own
+ * `markerIndent`, a paragraph opens at column 0 - so the source's own
+ * columns ARE the enclosing block's continuation column and there is
+ * no re-indentation to compose.
+ * @param nodes - the block's inline nodes, in source order
+ * @param source - the document Prettier parsed
+ * @param from - where the block's FIRST OUTPUT LINE starts in the
+ *   source, for a block whose caller writes a prefix into the packed
+ *   run itself (an admonition's `NOTE: ` label); the first node's own
+ *   start by default, which is right wherever the prefix is written
+ *   outside the run (a list item's marker) or there is none
+ * @returns the block's source lines, or none when it holds no node
+ */
+export function replayLines(
+  nodes: readonly InlineNode[],
+  source: string,
+  from?: number,
+): readonly string[] {
+  const first = nodes.at(0);
+  const last = nodes.at(-1);
+  if (first === undefined || last === undefined) {
+    return [];
+  }
+  return source
+    .slice(from ?? first.position.start.offset, last.position.end.offset)
+    .split("\n");
+}
+
+/**
+ * Whether every line the packer laid out below the block's first
+ * reads back as this block's own text.
+ *
+ * THE BLOCK'S FIRST LINE IS A DIFFERENT QUESTION, asked by
+ * {@link opensTheSameBlock}: the reader classified it at a block
+ * START, where what matters is whether it still opens the block it
+ * opened rather than whether it continues one.
+ *
+ * The lines are asked about EXACTLY AS THEY WILL BE WRITTEN, leading
+ * indent included, because that is what the reader will read: the same
+ * words at column 0 and at column 2 are two different lines to
+ * `next_block`.
+ *
+ * `next` is undefined at every position below the first, and that is
+ * the reader's own arrangement rather than a shortcut: a line inside
+ * an open block reads no neighbour, because the one two-line
+ * construct is the underlined section title and it is asked at a
+ * block start alone (parser.rb l.374 and l.710, both from
+ * `next_section`). The design's base case, the line the printer
+ * writes AFTER the block, therefore reaches only
+ * {@link opensTheSameBlock}, where {@link BLANK_LINE_BELOW} supplies
+ * it.
+ * @param lines - the finished output lines, indentation included
+ * @param layout - the block's reading and its own source lines
+ * @returns true when the layout is one the reader reads back
+ */
+function readsBackAsTheBlock(
+  lines: readonly PackedLine[],
+  layout: Extract<BlockLayout, { readonly reading: BlockReading }>,
+): boolean {
+  const { reading } = layout;
+  if (!opensTheSameBlock(lines, layout)) {
+    return false;
+  }
+  for (let index = 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    // A line the packer REPLAYED is not one it composed: a comment or
+    // a preprocessor directive inside a block is the author's own
+    // line, written back where it stood, and the reader consumes it
+    // as what it is rather than reading it as the block's text
+    // ({@link keepsTheLine}, src/line-verdict.ts, is the reader's own
+    // half of that difference). Asking the composed-line question of
+    // one would refuse every block that holds one.
+    if (!line.composed) {
+      continue;
+    }
+    const ordinal = index === 1 ? FIRST_CONTINUATION : LATER_CONTINUATION;
+    // No neighbour: a position inside an open block reads none, which
+    // is `read_paragraph_lines` running rather than `next_section`'s
+    // loop (see lineVerdict, src/line-verdict.ts).
+    if (
+      !accepts(line.text, undefined, continuationPosition(reading, ordinal))
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Whether the block's FIRST output line still opens the block the
+ * reader opened.
+ *
+ * A DIFFERENT QUESTION from the one every line below it is asked: the
+ * reader classified this line at a block START, where the whole
+ * ladder is live and where every shape it knows is a reading the
+ * paragraph could lose. So the question is asked TWICE, of the
+ * block's own first source line and of the line the packer would
+ * write, and the layout is refused only where the second answer
+ * differs from the first. Asking it of the source's line is not a
+ * guess about destroyed bytes: those bytes are exactly the ones the
+ * packer writes back when this returns false.
+ *
+ * ASKED ONLY WHERE THE PACKER OWNS THE COLUMN. Where a marker, a
+ * label or a term line stands in front of the first output line, what
+ * that line opens is decided partly by bytes the packer did not lay
+ * out, and the atom-level nets answer for it instead
+ * (src/print/block-start-hazard.ts, src/print/list-hazard.ts).
+ *
+ * ITS DOMAIN, and why the first answer is a guard rather than a
+ * comparison. The block-start context this can build is the widest
+ * one: `substitutedContentAbove` and `markerLineWins` are the two
+ * facts a block start turns on that the recorded reading does not
+ * carry, and false is the reading under which every rule they hold
+ * off fires. A block whose own first line is NOT read as text under
+ * that widest reading is one whose opening the printer cannot answer
+ * for - a paragraph under an `include::` whose first line is a block
+ * macro the substitution held off, or the paragraph a lone `+` opens
+ * at document level - and the layout stands there, exactly as it did
+ * before this question existed. Refusing on a first answer we know to
+ * be wider than the reader's would replay blocks the reader never had
+ * a quarrel with.
+ *
+ * THE NEIGHBOUR is the block's own second output line where it has
+ * one, and the blank line the join writes under it where it does not.
+ * That is the design's base case, and the only place a neighbour is
+ * read at all: the underlined section title is the one two-line
+ * construct, and it is asked at a block start alone (parser.rb l.374
+ * and l.710, both from `next_section`).
+ * @param lines - the finished output lines
+ * @param layout - the block's reading and its own source lines
+ * @returns true when the first line opens the block it opened
+ */
+function opensTheSameBlock(
+  lines: readonly PackedLine[],
+  layout: Extract<BlockLayout, { readonly reading: BlockReading }>,
+): boolean {
+  const first = lines.at(0);
+  if (!layout.opensItsOwnLine || first?.composed !== true) {
+    return true;
+  }
+  const position = openingPosition(layout.reading, OPENS_AS_TEXT);
+  const below = lines.at(1)?.text ?? BLANK_LINE_BELOW;
+  return (
+    !accepts(layout.replay[0], layout.replay.at(1), position) ||
+    accepts(first.text, below, position)
+  );
+}
+
+/**
+ * The one reading this packer can answer for at a block start: the
+ * block's first line is the prose it holds. See
+ * {@link opensTheSameBlock} for why the others are left to the
+ * atom-level nets.
+ */
+const OPENS_AS_TEXT = { reading: "text" } as const;
+
+/**
+ * What the join writes under a block that ends its own extent: one
+ * blank line. Every block sequence this printer writes is separated
+ * by one (src/print/join.ts), and inside a list item the line under a
+ * packed block is a marker line, a term line or a `+`; none of the
+ * four is a setext underline, which is the only shape a neighbour
+ * decides.
+ */
+const BLANK_LINE_BELOW = "";
+
+/**
+ * One finished output line, and whether the packer COMPOSED it out of
+ * the block's words or REPLAYED it from a line the source already had.
+ */
+interface PackedLine {
+  /** The line as it will be written, indentation included. */
+  readonly text: string;
+  /** False for a line that is one raw source line replayed whole. */
+  readonly composed: boolean;
+}
+
+/**
  * Greedy line packer: atoms join with single spaces up to `width`
  * columns; a fused run is measured whole before the break decision, so a
  * run longer than the width overruns on its own line rather than being
@@ -244,7 +510,10 @@ function runBreak(
  * @param indent - columns the block's continuation lines are indented
  *   by; the FIRST line is returned without it, because its caller writes
  *   whatever occupies those columns (a list marker) itself.
- * @returns the finished lines, indentation included.
+ * @param layout - how the reader read the block, and the lines it is
+ *   replayed from ({@link BlockLayout}).
+ * @returns the finished lines, indentation included; the block's own
+ *   source lines where no line of the layout reads back as its text.
  * Exported for its unit test (tests/print/reflow.test.ts); no src
  * consumer.
  * @internal
@@ -253,12 +522,59 @@ export function wrap(
   atoms: readonly Atom[],
   width: number,
   indent: number,
+  layout: BlockLayout,
 ): string[] {
-  const lines: string[] = [];
+  const lines = packLines(atoms, width, indent);
+  // A block with nothing to write back keeps its layout: the only
+  // such block is one the printer assembles from a node no reader
+  // read as a block of its own, where there is no recorded reading to
+  // ask in and no source lines to write instead.
+  if (layout.replay === "none") {
+    return lines.map((each) => each.text);
+  }
+  // THE REFUSAL IS WHOLE-BLOCK, never a retreat to some other break.
+  // A layout with one line the reader does not read as this block's
+  // text is not repaired by keeping one of the source's own breaks
+  // instead: the packer would have to pick WHICH, and a rule that
+  // picks is one two spellings of the same document answer
+  // differently, which is a confluence violation rather than a fix.
+  // Writing the block's own lines back is the one answer that is a
+  // fixed point on re-read, because the output IS the input the
+  // reader read.
+  if (readsBackAsTheBlock(lines, layout)) {
+    return lines.map((each) => each.text);
+  }
+  return [...layout.replay];
+}
+
+/**
+ * The greedy layout: runs join with single spaces up to `width`
+ * columns, a demanded break opens a line, and a fused run is measured
+ * whole. See {@link wrap}, whose comment carries the rules this loop
+ * applies; this is the loop alone, split out so the layout and the
+ * question asked of it are two functions.
+ * @param atoms - the block's atoms in order.
+ * @param width - the column budget for a whole output line.
+ * @param indent - columns the continuation lines are indented by.
+ * @returns the lines, each saying whether the packer composed it.
+ */
+function packLines(
+  atoms: readonly Atom[],
+  width: number,
+  indent: number,
+): PackedLine[] {
+  const lines: PackedLine[] = [];
   let line = "";
+  // A line is COMPOSED unless every run on it is one the source wrote
+  // as a whole line of its own; a raw run is alone on its line by
+  // construction, so one flag per line is the whole of it.
+  let composed = true;
   let lineIndent = indent;
   const flush = (): void => {
-    lines.push(lines.length === 0 ? line : " ".repeat(lineIndent) + line);
+    lines.push({
+      text: lines.length === 0 ? line : " ".repeat(lineIndent) + line,
+      composed,
+    });
   };
   for (let index = 0; index < atoms.length; ) {
     const run = runAt(atoms, index);
@@ -273,9 +589,11 @@ export function wrap(
       flush();
       lineIndent = run.breakBefore === "literal" ? 0 : indent;
       line = run.text;
+      composed = true;
     } else {
       line = line === "" ? run.text : `${line} ${run.text}`;
     }
+    composed &&= !atoms[run.start].ownsItsLine;
     index = run.end;
   }
   if (line !== "") {
@@ -914,15 +1232,18 @@ function heldRun(
  * @param atoms - the block's atoms, in order.
  * @param width - the column budget for a whole output line.
  * @param indent - columns the continuation lines are indented by.
+ * @param layout - how the reader read the block, and the lines it is
+ *   replayed from ({@link BlockLayout}).
  * @returns the reflowed body, one Doc line per output line.
  */
 export function blockBody(
   atoms: readonly Atom[],
   width: number,
   indent: number,
+  layout: BlockLayout,
 ): Doc[] {
   const parts: Doc[] = [];
-  for (const text of wrap(atoms, width, indent)) {
+  for (const text of wrap(atoms, width, indent, layout)) {
     if (parts.length > 0) {
       parts.push(hardline);
     }

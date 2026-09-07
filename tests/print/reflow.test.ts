@@ -26,6 +26,7 @@ import {
   wordsToAtoms,
   wrap,
   type Atom,
+  type BlockLayout,
 } from "../../src/print/reflow.js";
 
 /**
@@ -251,9 +252,16 @@ describe("the atoms a word list becomes", () => {
   });
 });
 
+// The rows below are about the PACKING, so they hand the packer a
+// block with nothing to write back instead, which is the arm whose
+// layout stands whatever the reader would make of it. The refusal
+// itself is asserted from the format suites, where a whole document
+// says what the reader makes of the line.
+const ANY_LAYOUT: BlockLayout = { replay: "none" };
+
 describe("packing atoms into lines", () => {
   test("no atoms make no lines — not one empty line", () => {
-    expect(wrap([], 80, 0)).toEqual([]);
+    expect(wrap([], 80, 0, ANY_LAYOUT)).toEqual([]);
   });
 
   const budgets: Array<{
@@ -286,13 +294,15 @@ describe("packing atoms into lines", () => {
   ];
 
   test.each(budgets)("$rule", ({ width, indent, lines }) => {
-    expect(wrap([atom("aaa"), atom("bbb")], width, indent)).toEqual(lines);
+    expect(wrap([atom("aaa"), atom("bbb")], width, indent, ANY_LAYOUT)).toEqual(
+      lines,
+    );
   });
 
   test("width is COLUMNS: a full-width character costs two", () => {
     const atoms = [atom("漢字漢字"), atom("x")];
-    expect(wrap(atoms, 9, 0)).toEqual(["漢字漢字", "x"]);
-    expect(wrap(atoms, 10, 0)).toEqual(["漢字漢字 x"]);
+    expect(wrap(atoms, 9, 0, ANY_LAYOUT)).toEqual(["漢字漢字", "x"]);
+    expect(wrap(atoms, 10, 0, ANY_LAYOUT)).toEqual(["漢字漢字 x"]);
   });
 
   test("a fused run is measured whole before the break decision", () => {
@@ -301,12 +311,16 @@ describe("packing atoms into lines", () => {
       atom("bbb"),
       atom("ccc", { noBreakBefore: true }),
     ];
-    expect(wrap(atoms, 8, 0)).toEqual(["aaa", "bbb ccc"]);
+    expect(wrap(atoms, 8, 0, ANY_LAYOUT)).toEqual(["aaa", "bbb ccc"]);
   });
 
   test("a run longer than the budget overruns on a line of its own", () => {
     const atoms = [atom("aaa"), atom("bbbbbbbbbb"), atom("c")];
-    expect(wrap(atoms, 5, 2)).toEqual(["aaa", "  bbbbbbbbbb", "  c"]);
+    expect(wrap(atoms, 5, 2, ANY_LAYOUT)).toEqual([
+      "aaa",
+      "  bbbbbbbbbb",
+      "  c",
+    ]);
   });
 
   test("a break demanded inside a fused run lands in front of the WHOLE run", () => {
@@ -315,23 +329,23 @@ describe("packing atoms into lines", () => {
       atom("bb"),
       atom("cc", { noBreakBefore: true, breakBefore: "hard" }),
     ];
-    expect(wrap(atoms, 80, 0)).toEqual(["aa", "bb cc"]);
+    expect(wrap(atoms, 80, 0, ANY_LAYOUT)).toEqual(["aa", "bb cc"]);
   });
 
   test("a break demanded by the very first run opens no empty line", () => {
     expect(
-      wrap([atom("a", { breakBefore: "hard" }), atom("b")], 80, 0),
+      wrap([atom("a", { breakBefore: "hard" }), atom("b")], 80, 0, ANY_LAYOUT),
     ).toEqual(["a b"]);
   });
 
   test("a hard break opens a line at the continuation indent", () => {
     const atoms = [atom("a"), atom("b", { breakBefore: "hard" }), atom("c")];
-    expect(wrap(atoms, 5, 3)).toEqual(["a", "   b", "   c"]);
+    expect(wrap(atoms, 5, 3, ANY_LAYOUT)).toEqual(["a", "   b", "   c"]);
   });
 
   test("a literal break opens a line at column 0, with the whole budget", () => {
     const atoms = [atom("a"), atom("b", { breakBefore: "literal" }), atom("c")];
-    expect(wrap(atoms, 5, 3)).toEqual(["a", "b c"]);
+    expect(wrap(atoms, 5, 3, ANY_LAYOUT)).toEqual(["a", "b c"]);
   });
 
   // wordsToAtoms fuses a block-syntax word backwards, but only within
@@ -341,11 +355,11 @@ describe("packing atoms into lines", () => {
   // overruns the line it is already on.
   test("a width break is refused where the run would be block syntax", () => {
     const atoms = [atom("aaa"), atom("[b@c.com]")];
-    expect(wrap(atoms, 5, 0)).toEqual(["aaa [b@c.com]"]);
+    expect(wrap(atoms, 5, 0, ANY_LAYOUT)).toEqual(["aaa [b@c.com]"]);
   });
 
   test("an ordinary run of the same width still takes the break", () => {
-    expect(wrap([atom("aaa"), atom("bb@c.com")], 5, 0)).toEqual([
+    expect(wrap([atom("aaa"), atom("bb@c.com")], 5, 0, ANY_LAYOUT)).toEqual([
       "aaa",
       "bb@c.com",
     ]);
@@ -355,13 +369,13 @@ describe("packing atoms into lines", () => {
   // weighed this hazard: the refusal is for WIDTH breaks alone.
   test("a demanded break still stands in front of block syntax", () => {
     const atoms = [atom("aaa"), atom("[b@c.com]", { breakBefore: "literal" })];
-    expect(wrap(atoms, 80, 0)).toEqual(["aaa", "[b@c.com]"]);
+    expect(wrap(atoms, 80, 0, ANY_LAYOUT)).toEqual(["aaa", "[b@c.com]"]);
   });
 });
 
 describe("the block body", () => {
   test("one part per output line, a hardline between", () => {
-    const parts = blockBody([atom("aaa"), atom("bbb")], 6, 0);
+    const parts = blockBody([atom("aaa"), atom("bbb")], 6, 0, ANY_LAYOUT);
     expect(parts).toHaveLength(3);
     expect(parts[0]).toBe("aaa");
     expect(parts[2]).toBe("bbb");
