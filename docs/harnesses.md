@@ -736,19 +736,21 @@ the two LINE KINDS that decide whether a line break survives a reflow: a hard
 break (` +` on a line of its own), and an inline construct whose interior spans
 two INDENTED source lines. Neither exists in any other enumeration's alphabet.
 The line registry, the inline registry and the list-shape sweep spell no
-document of either class between them (measured at 576,343 distinct documents
-when this landed), because the list-shape alphabet has no hard-break line and no
-symbol occupying two lines, and the inline registry wraps one inline run in one
-context line, which is a different document shape entirely. Those are the lines
-the printer's reflow decisions are made about, so an absolute pin over them is
-worth its wall time.
+document CARRYING either line kind, because the list-shape alphabet has no
+hard-break line and no symbol occupying two lines, and the inline registry wraps
+one inline run in one context line, which is a different document shape
+entirely. They do share documents with this table, on the plain marker line, and
+none of those carries either line kind; the enumeration's own header states the
+claim and what it was measured over. Those are the lines the printer's reflow
+decisions are made about, so an absolute pin over them is worth its wall time.
 
 `tests/conformance/reflow-line-sweep.ts` is the enumeration, and it is a
 DECLARED TABLE of two classes rather than a filter over anybody else's
 population:
 
 - `hard-break`, the list-shape sweep's own eleven symbols with a hard-break line
-  added.
+  added. It carries one witness beside its product: a checklist marker line
+  whose whole text is the break, which no marker line below spells.
 - `indented-two-line`, a plain line, a blank, a comment and a hard break beside
   six constructs broken across two lines with BOTH lines indented - the
   combination where the two directions of error meet, since a reader that takes
@@ -759,12 +761,28 @@ population:
   escaped mark, an attribute or character reference, a construct nested inside
   another across a line break.
 
-Each class is the depth-1-to-3 product over its alphabet under two prefixes, a
-one-line item and the same item with a second text line, the shorter of the two
-shapes reflow can move. The hard-break alphabet RESTATES the eleven list-shape
-symbols rather than importing them, deliberately: the pinned population counts
-are counts of this table, and importing would let another module move what this
-one spells without moving anything a reader of the file can see.
+Each class is the depth-1-to-3 product over its alphabet under two prefixes per
+MARKER LINE, a one-line item and the same item with a second text line, the
+shorter of the two shapes reflow can move. The hard-break alphabet RESTATES the
+eleven list-shape symbols rather than importing them, deliberately: the pinned
+population counts are counts of this table, and importing would let another
+module move what this one spells without moving anything a reader of the file
+can see.
+
+The marker lines are the plain item and the three CHECKLIST HEADS (`[ ]`, `[x]`,
+`[*]`). Asciidoctor reads a checkbox off an unordered item's own first line and
+nowhere else, and slices those four characters off the item's text, so a
+checklist item's text starts four columns past a plain item's while the marker
+line still spells one item; that offset is the one the printer replays a block
+from, which makes the head a reflow coordinate. It is also the one construct no
+other enumeration in the tree spelled at all: before this dimension, `* [ ] `
+appeared in no sweep, quarantine, manifest or ledger document, and a replay that
+wrote the checkbox bytes a second time reached a re-check with every gate green
+(issue #314). The tab and form-feed heads are deliberately absent, and both
+exclusions are measured rather than judged, at `ITEM_LINES` in the enumeration:
+one changes no row's verdict, the other reddens all but a handful of the
+documents it would add with an erasure `tests/format/checklist.test.ts` already
+owns.
 
 The two alphabets share four symbols, so both classes spell some of the same
 documents. The first class in the table that spells one mints it and the second
@@ -777,15 +795,15 @@ written for, and a cluster digest is taken over ids joined by newlines, so an id
 carrying one would make two different id lists digest the same.
 
 ONE TIER, in `bun run test` (`tests/conformance/reflow-line-sweep.test.ts`),
-because the whole population runs there in a few seconds, which vitest prints
-beside the file on every run. Pinned to
-`tests/conformance/reflow-line-sweep-manifest.json`, failing rows grouped into
-clusters keyed by class and failed properties, exact in both directions the way
-every other sweep manifest is: a document that starts failing fails the gate AND
-a pinned document that gets fixed fails it too, until the cluster's count and
-digest are rewritten. When the gate disagrees it writes the whole failing list
-to `reports/reflow-line-sweep-failures.json` (gitignored) and prints the path,
-because the manifest names only five ids per cluster.
+because the whole population finishes there inside the critical path the
+list-shape sweep already sets, which vitest prints beside both files on every
+run. Pinned to `tests/conformance/reflow-line-sweep-manifest.json`, failing rows
+grouped into clusters keyed by class and failed properties, exact in both
+directions the way every other sweep manifest is: a document that starts failing
+fails the gate AND a pinned document that gets fixed fails it too, until the
+cluster's count and digest are rewritten. When the gate disagrees it writes the
+whole failing list to `reports/reflow-line-sweep-failures.json` (gitignored) and
+prints the path, because the manifest names only five ids per cluster.
 
 That same file pins the POPULATION, per class and in total, which is the one
 thing a failure manifest cannot say: a class dropped from the table takes its

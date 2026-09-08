@@ -10,11 +10,12 @@
  * rewritten. That second direction is what makes the manifest shrink
  * instead of rot.
  *
- * ONE TIER. The population is five figures short of the registry
- * sweeps' and runs in a few seconds, so there is no wall time here to
- * move into `bun run test:deeply-nested-lists` and no deep entry to
- * pin a population from. This file holds both jobs: the manifest and
- * the population it was measured over.
+ * ONE TIER. The population is an order of magnitude short of the
+ * registry sweeps' and finishes inside the critical path the
+ * list-shape sweep already sets in this suite, so there is no wall
+ * time here to move into `bun run test:deeply-nested-lists` and no
+ * deep entry to pin a population from. This file holds both jobs: the
+ * manifest and the population it was measured over.
  *
  * The population pin is what a manifest cannot say. A class dropped
  * from the table takes its failures with it, and the manifest would
@@ -41,7 +42,7 @@ import {
 
 /**
  * How many rows each class mints. The second number is smaller than
- * the 2,122 documents `indented-two-line` spells, because the four
+ * the document count `indented-two-line` spells, because the four
  * symbols the two alphabets share are minted by whichever class comes
  * first in the table: these are counts of ROWS, which is what the
  * sweep runs.
@@ -51,12 +52,15 @@ import {
  * the change that earns it.
  */
 const CLASS_ROWS: Record<string, number> = {
-  "hard-break": 3612,
-  "indented-two-line": 1973,
+  // Separators from five digits up, which is where
+  // `unicorn/numeric-separators-style` starts requiring them and
+  // rejecting them below.
+  "hard-break": 14_449,
+  "indented-two-line": 7859,
 };
 
 /** How many rows the whole table yields, the two classes deduplicated. */
-const POPULATION = 5585;
+const POPULATION = 22_308;
 
 /**
  * Writes the full failing list where triage can read it, and says
@@ -109,7 +113,20 @@ describe("reflow-line sweep", () => {
     // Issue #302 names this document: it renders with two literal plus
     // signs, formats to a hard break, and no other enumeration in the
     // tree spells it.
-    expect(rows.map((row) => row.input)).toContain("* a\n +\n +\n");
+    const inputs = rows.map((row) => row.input);
+    expect(inputs).toContain("* a\n +\n +\n");
+    // The two checklist documents the marker-line dimension exists
+    // for. The first duplicated its checkbox until the item's text
+    // node learned to start past the prefix it no longer holds
+    // (`stripCheckboxPrefix`, src/parse/build/list.ts): with that
+    // offset taken back out it formats to `* [ ] [ ] a`, and rows
+    // under every head fail beside it, so this pin is what keeps them
+    // spellable. Before this dimension no sweep, quarantine, manifest
+    // or ledger document in the tree spelled a checklist marker at
+    // all. The second is #316's shape, carried as a witness because
+    // no marker line spells a head with nothing behind it.
+    expect(inputs).toContain("* [ ] a\n// c\n +\n");
+    expect(inputs).toContain("* [ ] +\n   +\n  z\n");
   });
 
   test("the failing clusters are exactly the manifest", async () => {

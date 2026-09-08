@@ -5,18 +5,23 @@
  * `tests/conformance/registry-sweep.ts` runs on the line registry's
  * grids.
  *
- * WHAT IT REACHES THAT NOTHING ELSE DOES. The line registry, the
- * inline registry and the list-shape sweep spell no document of either
- * class between them: measured at 576,343 distinct documents when this
- * was written, and structural rather than incidental. The list-shape
+ * WHAT IT REACHES THAT NOTHING ELSE DOES. The line registry
+ * (`deepTierRows`), the inline registry (`inlineDeepTierRows`) and the
+ * list-shape sweep (`sweepDocuments`) spell no document carrying
+ * either class's OWN line kind, a hard-break line or a construct
+ * broken across two source lines. They do share documents with this
+ * table, a minority of the rows on the plain marker line, and every
+ * one of those carries neither line kind: the overlap is what the
+ * alphabets' four common symbols make, not a coordinate this sweep
+ * exists for. Structural rather than incidental: the list-shape
  * alphabet carries no hard-break line and no symbol that occupies two
  * source lines, so its product contains no document in which a ` +`
- * decides
- * whether a line break survives and none in which a construct opens on
- * one indented line and closes on the next. The inline registry does
- * vary the text inside a run, but it wraps ONE run in ONE context
- * line, so a document of its is a document of a different shape
- * entirely: measured, zero of its rows is a member of either class
+ * decides whether a line break survives and none in which a construct
+ * opens on one indented line and closes on the next, and no
+ * enumeration but this one spells a checklist marker at all. The
+ * inline registry does vary the text inside a run, but it wraps ONE
+ * run in ONE context line, so a document of its is a document of a
+ * different shape entirely: no row of it is a member of either class
  * here. Those are the lines the printer's reflow decisions are made
  * about, which is why an absolute pin over them is worth its wall
  * time.
@@ -31,11 +36,13 @@
  * makes them checkable.
  *
  * Each class is the depth-1-to-3 product over its alphabet under two
- * prefixes: a one-line item, and the same item with a second text
- * line, which is the shorter of the two shapes reflow can move. The
- * second prefix is the first plus the alphabet's FIRST symbol, so the
- * two products overlap by construction and the deduplication is a
- * property of the definition rather than an accident of the strings.
+ * prefixes per marker line: a one-line item, and the same item with a
+ * second text line, which is the shorter of the two shapes reflow can
+ * move. The second prefix is the first plus the alphabet's FIRST
+ * symbol, so the two products overlap by construction and the
+ * deduplication is a property of the definition rather than an
+ * accident of the strings. The marker lines are {@link ITEM_LINES},
+ * the plain item and the three checklist heads.
  *
  * ONE ROW PER DOCUMENT. The two alphabets share four symbols, so both
  * classes spell some of the same documents; the first class in the
@@ -50,11 +57,11 @@
  * so the fidelity comparison is never vacuous the way it is for a
  * comment block in the line registry.
  *
- * ONE TIER, in `bun run test`. The whole population runs in a few
- * seconds, well inside what an always-on suite can afford, so there is
- * nothing here to split. No figure is quoted: every reading of it
- * moves with the machine and the load, and vitest prints the file's
- * own duration on every run.
+ * ONE TIER, in `bun run test`. The whole population runs inside the
+ * suite's existing critical path, which the list-shape sweep sets and
+ * this file does not reach, so there is nothing here to split. No
+ * figure is quoted: every reading of it moves with the machine and the
+ * load, and vitest prints the file's own duration on every run.
  *
  * Failures are held by `reflow-line-sweep-manifest.json` as CLUSTERS,
  * on the exact-agreement terms every sweep manifest uses: a cluster
@@ -92,8 +99,44 @@ export const REFLOW_LINE_SWEEP_DUMP_PATH =
 /** How many symbols the longest body of a class's product spells. */
 const DEPTH = 3;
 
-/** The marker line every generated document opens with. */
-const ITEM = "* a";
+/**
+ * The marker lines the products open with: the item's own first line,
+ * varied over the CHECKLIST HEAD.
+ *
+ * Asciidoctor reads a checkbox off an unordered item's first line and
+ * off nothing else (`item_text.start_with?('[ ] ', '[x] ', '[*] ')`,
+ * parser.rb l.1330, whose arm slices those four characters off the
+ * item's text), so a checklist item's TEXT starts four columns past
+ * where a plain item's does while the marker line still spells one
+ * item. That offset is the one the printer replays a block from
+ * (`replayLines`, src/print/reflow.ts, reached from src/print/list.ts),
+ * which makes the head a reflow coordinate rather than a decoration:
+ * the item's text moving four columns changes which bytes a replayed
+ * line opens at, and every line kind in the alphabets below asks its
+ * own question of that block.
+ *
+ * All three spellings, because the reader distinguishes all three and
+ * the printer does not: `[x]` and `[*]` are one state to Asciidoctor
+ * and `[x]` is the only way back (`formatCheckbox`, src/print/list.ts),
+ * so `[*]` is the one head whose output bytes differ from its input's,
+ * and its `*` is a bold delimiter as well.
+ *
+ * The tab and form-feed heads (`* [x]<TAB>a`) are NOT here, and both
+ * exclusions were measured over this table rather than judged. Neither
+ * is a checkbox to either program, since the prefix's fourth character
+ * is a literal space. A head added here spells a whole marker line's
+ * share of the table, which the row counts pinned in
+ * `reflow-line-sweep.test.ts` measure; the tab head changed no row's
+ * verdict anywhere in it, as the tree stands or with the checklist
+ * replay offset reverted, and what it would pin is pinned by the rows
+ * in tests/format/checklist.test.ts. The form-feed head fails fidelity
+ * on all but a couple of dozen of the documents it would add, every
+ * one of them the erasure that same file characterizes (the
+ * marker-line guard puts `[x]` alone on its line, the fold joins with
+ * a space, and the control byte is gone), on a byte no editor writes
+ * into a text file.
+ */
+const ITEM_LINES = ["* a", "* [ ] a", "* [x] a", "* [*] a"] as const;
 
 /**
  * The plain-text line that leads every alphabet here, which makes it
@@ -157,7 +200,7 @@ const INDENTED_TWO_LINE_CONSTRUCTS = [
  * marker line already carries text, a construct broken across two
  * lines only one of which is indented.
  */
-const WITNESSES = [
+const INDENTED_TWO_LINE_WITNESSES = [
   // A line an inline construct opens, above a hard break, with an
   // indented line under it: the indent question asked of a line whose
   // leading bytes belong to a construct rather than to text.
@@ -202,6 +245,21 @@ const WITNESSES = [
   "* a\n#b\n  c# d\n +\n",
 ] as const;
 
+/**
+ * The hard-break class's own witness: a checklist marker line whose
+ * text is the break itself, over a plus one column further out.
+ *
+ * No marker line in {@link ITEM_LINES} spells it. The head there is
+ * followed by text; here the four characters are the whole of what
+ * precedes the break, so the question of where the item's text starts
+ * is asked of a marker line that carries none. Both programs read a
+ * checklist item on it. We record no checkbox, because the trailing
+ * ` +` is taken as a break token before the prefix is tested (#316),
+ * and the three properties here still pass, so the document mints no
+ * cluster; what carrying it holds is that the shape is swept at all.
+ */
+const HARD_BREAK_WITNESSES = ["* [ ] +\n   +\n  z\n"] as const;
+
 /** One declared class: an alphabet, and what rides beside its product. */
 interface ReflowLineClass {
   /** The class name, which is the first half of its cluster key. */
@@ -220,7 +278,7 @@ const CLASSES: readonly [ReflowLineClass, ...ReflowLineClass[]] = [
   {
     name: "hard-break",
     symbols: [...LINE_SHAPES, HARD_BREAK],
-    witnesses: [],
+    witnesses: HARD_BREAK_WITNESSES,
   },
   {
     name: "indented-two-line",
@@ -231,20 +289,24 @@ const CLASSES: readonly [ReflowLineClass, ...ReflowLineClass[]] = [
       HARD_BREAK,
       ...INDENTED_TWO_LINE_CONSTRUCTS,
     ],
-    witnesses: WITNESSES,
+    witnesses: INDENTED_TWO_LINE_WITNESSES,
   },
 ];
 
 /**
- * Every document one class spells: the exhaustive product under both
- * prefixes, then its witnesses, deduplicated.
+ * Every document one class spells: the exhaustive product under every
+ * marker line's two prefixes, then its witnesses, deduplicated.
  * @param declared - the class to spell
  * @returns the distinct documents, product first, in generation order
  */
 function classDocuments(declared: ReflowLineClass): string[] {
   const documents: string[] = [];
   const [continuation] = declared.symbols;
-  for (const prefix of [`${ITEM}\n`, `${ITEM}\n${continuation}\n`]) {
+  const prefixes = ITEM_LINES.flatMap((item) => [
+    `${item}\n`,
+    `${item}\n${continuation}\n`,
+  ]);
+  for (const prefix of prefixes) {
     const grow = (lines: readonly string[], remaining: number): void => {
       for (const symbol of declared.symbols) {
         const next = [...lines, symbol];

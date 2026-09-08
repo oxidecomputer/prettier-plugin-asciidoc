@@ -1,1 +1,12 @@
-{}
+{
+  "indented-two-line/fidelity": {
+    "count": 3,
+    "examples": [
+      "* [*] a\\n +\\n  *b\\n  c* d\\npara\\n",
+      "* [*] a\\n +\\n// c\\n  *b\\n  c* d\\n",
+      "* [*] a\\n +\\npara\\n  *b\\n  c* d\\n"
+    ],
+    "sha256": "108ef66b29e82200fbba4afb52ab090f2f6c67ec75a107002668b09d7c289e12",
+    "issue": "#326"
+  }
+}
