@@ -41,10 +41,22 @@ function scanOf(source: string, markerStyle?: string): ParagraphScan {
 // 0, and a `//` line inside it is the comment it looks like.
 const PLAIN_TEXT: TextOpen = { from: 0, extent: "runsOn", comments: "skipped" };
 
+// Every document below opens its paragraph on the scan's FIRST line,
+// which is where the opening-line fact is fixed with no context to
+// build ({@link ParagraphOpen}). The rows that measure the fact itself
+// are in tests/format/conditional.test.ts, where a whole document says
+// what the printer does with it.
+const FIRST_LINE = { at: 0, reads: "theReadersFirstLine" } as const;
+
 describe("paragraphExtent", () => {
   test("runs on through plain lines and stops at the blank, unread", () => {
     const scan = scanOf("a\nb\n\nc\n");
-    const { tokens, end } = paragraphExtent(scan, 0, "paragraph", PLAIN_TEXT);
+    const { tokens, end } = paragraphExtent(
+      scan,
+      FIRST_LINE,
+      "paragraph",
+      PLAIN_TEXT,
+    );
     // One run, tokenized as one: the newline between the lines is in
     // the image, because every token's image is a verbatim slice.
     expect(tokens.map((token) => token.image).join("")).toBe("a\nb\n");
@@ -53,7 +65,7 @@ describe("paragraphExtent", () => {
 
   test("`from` skips the marker: the run starts at the item's text", () => {
     const scan = scanOf("* item\n", "*");
-    const { tokens } = paragraphExtent(scan, 0, "listItem", {
+    const { tokens } = paragraphExtent(scan, FIRST_LINE, "listItem", {
       from: 2,
       extent: "runsOn",
       comments: "skipped",
@@ -64,20 +76,27 @@ describe("paragraphExtent", () => {
   test("an interrupting line ends the extent and is left for the reader", () => {
     // A delimiter is in every context's interrupting set.
     const scan = scanOf("a\n----\nb\n----\n");
-    const { end } = paragraphExtent(scan, 0, "paragraph", PLAIN_TEXT);
+    const { end } = paragraphExtent(scan, FIRST_LINE, "paragraph", PLAIN_TEXT);
     expect(end).toBe(1);
   });
 
   test("a comment line is kept verbatim, in place, and does not end it", () => {
     const scan = scanOf("a\n// c\nb\n");
-    const { tokens, end } = paragraphExtent(scan, 0, "paragraph", PLAIN_TEXT);
+    const { tokens, end } = paragraphExtent(
+      scan,
+      FIRST_LINE,
+      "paragraph",
+      PLAIN_TEXT,
+    );
     expect(tokens.map((token) => token.type)).toContain("RawLine");
     expect(end).toBe(3);
   });
 
   test("the extent ends at the lines' end with nothing left over", () => {
     const scan = scanOf("only\n");
-    expect(paragraphExtent(scan, 0, "paragraph", PLAIN_TEXT).end).toBe(1);
+    expect(paragraphExtent(scan, FIRST_LINE, "paragraph", PLAIN_TEXT).end).toBe(
+      1,
+    );
   });
 
   // Issue #262. `TextOpen.extent` is the caller's answer about the
@@ -92,7 +111,7 @@ describe("paragraphExtent", () => {
     ["runsOn" as const, "a\n///c\n", 2],
     ["ownLine" as const, "a\n///c\n", 1],
   ])("a %s text reads %#: the run is left or taken", (extent, source, end) => {
-    const body = paragraphExtent(scanOf(source), 0, "listItemText", {
+    const body = paragraphExtent(scanOf(source), FIRST_LINE, "listItemText", {
       from: 0,
       extent,
       comments: "skipped",
@@ -113,7 +132,7 @@ describe("paragraphExtent", () => {
   test("a comment lowers the common indent only where it is content", () => {
     const scan = scanOf("t:: item\n +\n// c\n");
     const breaks = (comments: "content" | "skipped"): number =>
-      paragraphExtent(scan, 0, "dlistItem", {
+      paragraphExtent(scan, FIRST_LINE, "dlistItem", {
         from: 0,
         extent: "runsOn",
         comments,
@@ -134,11 +153,12 @@ describe("paragraphExtent", () => {
     ["the indented arm reads it as text", "t:: item\n  x\n// c\n", 0],
     ["the arm beside it does not", "t:: item\n// c\ncontinued\n", 1],
   ])("%s, whatever the caller said", (_name, source, rawLines) => {
-    const { tokens } = paragraphExtent(scanOf(source), 0, "dlistItem", {
-      from: 0,
-      extent: "runsOn",
-      comments: "content",
-    });
+    const { tokens } = paragraphExtent(
+      scanOf(source),
+      FIRST_LINE,
+      "dlistItem",
+      { from: 0, extent: "runsOn", comments: "content" },
+    );
     expect(tokens.filter((token) => token.type === "RawLine")).toHaveLength(
       rawLines,
     );
@@ -148,7 +168,12 @@ describe("paragraphExtent", () => {
     // `within_nested_list` keys on the marker's COLUMN, so the line may
     // not be reflowed onto its predecessor — the scan marks it raw.
     const scan = scanOf("para\n. other\n", "*");
-    const { tokens } = paragraphExtent(scan, 0, "listContinuation", PLAIN_TEXT);
+    const { tokens } = paragraphExtent(
+      scan,
+      FIRST_LINE,
+      "listContinuation",
+      PLAIN_TEXT,
+    );
     expect(tokens.at(-1)?.type).toBe("RawLine");
   });
 });

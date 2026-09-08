@@ -197,12 +197,16 @@ classifying a whole line in the context where it appears.
   makes of the line the packer would write, and that answer is held against what
   the reader RECORDED for the line that stood there - the reading the site
   writes and, for a marker line, the style of the list the block sits in. No
-  pass re-reads the source's bytes for it. Where the caller writes a prefix in
-  front of that line (a list item's marker, its gap and any checkbox) the prefix
-  is part of the line asked about. The context the question builds is the WIDEST
-  block start, so the accepted set is a subset of the reader's: a paragraph
-  whose first line a substituting directive held off from opening a block comes
-  back as the author's own lines rather than joined.
+  pass re-reads the source's bytes for it, and a block whose recorded
+  opening-line reading says its first SOURCE line opens a block of its own once
+  the substituting directive above it is deleted (`BlockReading.openingLine`,
+  `src/reader-context.ts`) is written back before that question is asked at all,
+  because no packed line spells both readings. Where the caller writes a prefix
+  in front of that line (a list item's marker, its gap and any checkbox) the
+  prefix is part of the line asked about. The context the question builds is the
+  WIDEST block start, so the accepted set is a subset of the reader's: a
+  paragraph whose first line a substituting directive held off from opening a
+  block comes back as the author's own lines rather than joined.
 
 Lines are rstripped before classification, exactly as Asciidoctor's
 `Helpers.prepare_source_string` does, and the registry's patterns assume that.

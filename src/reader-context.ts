@@ -219,7 +219,7 @@ export type AttributeRunReading =
  * document level and a nested list at a `+`-attached one, and a `-`
  * marker line is a sibling inside one list and prose inside another.
  *
- * TWO FIELDS AND NO MORE, because the other five of
+ * TWO OF THE THREE FIELDS ARE THAT CONTEXT, and the other five of
  * {@link ReaderContext} are fixed at a continuation position rather
  * than the block's to record. `firstLineAfterStart` and `nextLine`
  * belong to the LINE and travel with the position the printer asks
@@ -232,10 +232,17 @@ export type AttributeRunReading =
  * (src/line-verdict.ts), and both the reader's scans and the printer
  * call it, so the fixed five have one spelling.
  *
+ * THE THIRD FIELD IS ABOUT THE BLOCK'S OWN FIRST LINE, which carries
+ * a different question ({@link OpeningLineReading}): not what a
+ * written line would continue, but whether the line the reader read
+ * at the block start means one thing there or two.
+ *
  * SURVIVING BYTES: the fact this records is the READING itself. The
  * printer's output re-reads into a block with the same context and
  * the same enclosing list, or the output is not the document that
- * went in, which is what the reparse gate measures.
+ * went in, which is what the reparse gate measures. The third field's
+ * carrier is the preprocessor directive standing above the block,
+ * which every reading that consults it re-emits verbatim.
  */
 export interface BlockReading {
   /**
@@ -248,4 +255,42 @@ export interface BlockReading {
    * it, or undefined at document level ({@link OpenList}).
    */
   openList: OpenList | undefined;
+  /**
+   * Whether the block's first line reads the same way whatever the
+   * directive above it substitutes ({@link OpeningLineReading}).
+   */
+  openingLine: OpeningLineReading;
 }
+
+/**
+ * WHETHER A BLOCK'S FIRST SOURCE LINE MEANS ONE THING OR TWO.
+ *
+ * A preprocessor directive that SUBSTITUTES content
+ * ({@link ReaderContext.substitutedContentAbove}) leaves the line
+ * under it with two readings, and which one the document takes is
+ * settled when it is RENDERED rather than when it is read: with the
+ * content substituted the line stands inside the paragraph that
+ * content opened, and with the directive deleted it stands at a block
+ * start, where nine of the classifier's rules are live for it. Our
+ * reader takes the wider of the two - the line is the paragraph's
+ * text - and this says whether the other one differs.
+ *
+ * WHY THE PRINTER NEEDS IT. A block whose first line has two readings
+ * has no PACKED layout that is right under both: `''' para` is one
+ * paragraph either way, where the source's `'''` over `para` is a
+ * thematic break and a paragraph under one of them. The block's own
+ * lines are the one output that renders as the input did under both,
+ * so the printer writes those back (`readsBackAsTheBlock`,
+ * src/print/reflow.ts).
+ */
+export type OpeningLineReading =
+  /**
+   * One reading: nothing substitutes above the line, or the
+   * classifier answers the same with the substitution and without it.
+   */
+  | "sameEitherWay"
+  /**
+   * Two readings: with nothing substituted above it the line opens a
+   * block of its own, and our reader read it as this block's text.
+   */
+  | "aBlockStartWithoutTheSubstitution";

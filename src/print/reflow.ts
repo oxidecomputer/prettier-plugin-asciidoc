@@ -447,11 +447,16 @@ function readsBackAsTheBlock(
  * classifies at the block start, and the rest are the author's own
  * lines going back where they stood.
  *
- * WHAT IT CANNOT REACH is a line whose reading depends on bytes
- * OUTSIDE the block: a paragraph opened under a substituting
- * directive whose condition turns out FALSE leaves the source's two
- * lines rendering differently from the one this writes. This question
- * cannot reach that; a per-word or per-atom net would have to.
+ * A LINE WITH TWO READINGS IS REFUSED BEFORE THE QUESTION IS ASKED,
+ * because for such a line the question has no answer that helps: the
+ * reader recorded that the block's first SOURCE line opens a block of
+ * its own once the substituting directive above it is deleted
+ * ({@link OpeningLineReading}, src/reader-context.ts), and which
+ * reading the document takes is settled at render time. `'''` over
+ * `para` is a thematic break and a paragraph under one reading and
+ * one paragraph under the other; every line the packer could write
+ * spells only one of them, so the block's own lines go back and both
+ * readings get what they read.
  *
  * THE NEIGHBOUR is the line directly under that head, wherever it
  * comes from: the rest of the same run, the block's second output
@@ -469,6 +474,9 @@ function opensTheSameLine(
   lines: readonly PackedLine[],
   layout: Extract<BlockLayout, { readonly reading: BlockReading }>,
 ): boolean {
+  if (layout.reading.openingLine === "aBlockStartWithoutTheSubstitution") {
+    return false;
+  }
   const first = lines.at(0);
   // A line the packer REPLAYED is the source's own, and reads back as
   // whatever it read as; the composed-line question is not about it

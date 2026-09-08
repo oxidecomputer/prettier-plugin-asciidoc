@@ -165,6 +165,15 @@ export interface ContinuationPosition {
 export type BlockPosition = OpeningPosition | ContinuationPosition;
 
 /**
+ * The two recorded facts a CONTINUATION position reads. The block's
+ * third ({@link BlockReading.openingLine}) is about its opening line
+ * alone, so no position below that line is entitled to it, and
+ * spelling that in the type is what keeps the reader's own scans from
+ * having to invent an answer for a field they do not use.
+ */
+type ContinuationReading = Pick<BlockReading, "context" | "openList">;
+
+/**
  * THE ONE PRODUCER of the context a block's continuation lines are
  * classified in, from the two facts the reader recorded about the
  * block ({@link BlockReading}, src/ast.ts) and the five that are
@@ -196,7 +205,7 @@ export type BlockPosition = OpeningPosition | ContinuationPosition;
  * @param reading - what the reader recorded about the block
  * @returns the context every line below the block's first is read in
  */
-function continuationContext(reading: BlockReading): ReaderContext {
+function continuationContext(reading: ContinuationReading): ReaderContext {
   return {
     openParagraph: reading.context,
     openList: reading.openList,
@@ -260,13 +269,14 @@ export function openingPosition(
 
 /**
  * A continuation position inside a block the reader read.
- * @param reading - what the reader recorded about the block
+ * @param reading - the two facts a position below the block's first
+ *   line reads ({@link ContinuationReading})
  * @param ordinal - the line directly under the block's first, or any
  *   line below that
  * @returns the position {@link lineVerdict} takes
  */
 export function continuationPosition(
-  reading: BlockReading,
+  reading: ContinuationReading,
   ordinal: 1 | 2,
 ): ContinuationPosition {
   return { ordinal, reader: continuationContext(reading) };
@@ -286,6 +296,7 @@ export function continuationPosition(
 export const NO_PACKED_TEXT: BlockReading = {
   context: "paragraph",
   openList: undefined,
+  openingLine: "sameEitherWay",
 };
 
 /**
@@ -382,10 +393,16 @@ function isBlockText(verdict: LineKind): boolean {
  * Every other verdict is the same in both readers: a block title, an
  * attribute entry, a list marker and a block macro all open what they
  * open wherever they stand.
+ *
+ * Read by the printer's opening question below and by the reader's
+ * own record of what a block's first line means
+ * (`openingLineReading`, src/parse/lines/paragraph-reader.ts): both
+ * hold a classifier verdict against what the reader ACTS on, so both
+ * read the one narrowing rather than restating it.
  * @param verdict - what the classifier made of the line
  * @returns the verdict the confined reader acts on
  */
-function insideAConfinedReader(verdict: LineKind): LineKind {
+export function insideAConfinedReader(verdict: LineKind): LineKind {
   return verdict.kind === "sectionTitle" ? { kind: "text" } : verdict;
 }
 

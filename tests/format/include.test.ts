@@ -112,14 +112,18 @@ describe("a block-boundary construct directly under an include", () => {
     );
   });
 
-  // Text on the line below joins the break into one paragraph, which
-  // is what the oracle reads: the break is not a block of its own to
-  // put a blank line under.
-  test("a break under an include folds with the text below it", async () => {
-    await expectFormatted(
-      "include::p[]\n___\nmore\n",
-      "include::p[]\n___ more\n",
-    );
+  // RED before the opening-line fact: the two lines came back as
+  // `include::p[]\n___ more\n`. Text on the line below does not let
+  // the break join it, because the line above has two readings and
+  // the packed one spells only one of them: an include that
+  // substitutes nothing (an empty file, a `lines=` range that selects
+  // none) leaves `___` at a block start, where Ruby 2.0.26 and
+  // `@asciidoctor/core` 4.0.11 alike render `<hr>` plus a paragraph,
+  // and the packed line renders one paragraph under both. The block's
+  // own lines are what both readings read (issue #309).
+  test("a break under an include keeps its own line", async () => {
+    const input = "include::p[]\n___\nmore\n";
+    await expectFormatted(input, input);
   });
 
   // Issue #213: the setext pair. `-----` is five dashes, so once
@@ -145,7 +149,12 @@ describe("a block-boundary construct directly under an include", () => {
       "include::p[]\nTitle\n~~~~~\n",
       "include::p[]\nTitle\n\n~~~~\n~~~~\n",
     ],
-    ["level 3", "include::p[]\nTitle\n^^^^^\n", "include::p[]\nTitle ^^^^^\n"],
+    // RED at level 3 alone before the opening-line fact: `^^^^^` is
+    // no delimiter, so the underline stayed inside the paragraph and
+    // the pair packed to `Title ^^^^^`. Both programs render the
+    // input as an `<h4>` where nothing is substituted above it, so
+    // the pair goes back as written (issue #309).
+    ["level 3", "include::p[]\nTitle\n^^^^^\n", "include::p[]\nTitle\n^^^^^\n"],
     [
       "level 4",
       "include::p[]\nTitle\n+++++\n",
@@ -183,11 +192,11 @@ describe("a block-boundary construct directly under an include", () => {
  * #293), which is the output safe whichever way the preprocessor
  * goes.
  *
- * The refusal reaches the shapes whose PACKED line still reads as
- * syntax, and no further: `include::p[]` over `___` over `para`
- * folds to `___ para`, because a run of underscores plus a word is
- * prose. That fold survives an unresolved include, which really does
- * substitute, and not a conditional whose condition turns out false.
+ * A packed line that reads back as prose is refused for a second
+ * reason, which is the one that reaches `___` over `para`: the
+ * reader recorded that the block's first SOURCE line opens a block of
+ * its own once nothing is substituted above it, and no packed line
+ * spells both readings at once (issue #309).
  */
 describe("a heading directly under an include", () => {
   test.each([
@@ -407,25 +416,19 @@ describe("a block macro directly under an include", () => {
     await expectFormatted(input, out);
   });
 
-  // Text below folds into the same paragraph, the trade every other
-  // held-off arm makes.
+  // RED before the opening-line fact: all three folded the line below
+  // onto the macro (`image::a.png[ alt ] more`, `image::a.png[] more`,
+  // `toc::[] more`). An include that substitutes nothing leaves the
+  // macro at a block start, where Ruby 2.0.26 and `@asciidoctor/core`
+  // 4.0.11 both render an image block (or the toc's own placeholder)
+  // above a paragraph, and the packed line renders one paragraph
+  // under both readings (issue #309).
   test.each([
-    [
-      "a padded attrlist",
-      "include::p[]\nimage::a.png[ alt ]\nmore\n",
-      "include::p[]\nimage::a.png[ alt ] more\n",
-    ],
-    // The BLANK LINE mechanism on its own: nothing here is respelled,
-    // and the blank the printer put under the macro block still split
-    // the one paragraph the oracle reads into two blocks.
-    [
-      "an empty attrlist",
-      "include::p[]\nimage::a.png[]\nmore\n",
-      "include::p[]\nimage::a.png[] more\n",
-    ],
-    ["a toc", "include::p[]\ntoc::[]\nmore\n", "include::p[]\ntoc::[] more\n"],
-  ])("a macro with %s folds with the text below it", async (_n, input, out) => {
-    await expectFormatted(input, out);
+    ["a padded attrlist", "include::p[]\nimage::a.png[ alt ]\nmore\n"],
+    ["an empty attrlist", "include::p[]\nimage::a.png[]\nmore\n"],
+    ["a toc", "include::p[]\ntoc::[]\nmore\n"],
+  ])("a macro with %s keeps its own line", async (_n, input) => {
+    await expectFormatted(input, input);
   });
 
   // The negative shapes: with no substituted content above, the macro

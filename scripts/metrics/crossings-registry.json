@@ -197,6 +197,13 @@
   },
   {
     "file": "src/line-verdict.ts",
+    "symbol": "insideAConfinedReader",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the one shape a confined reader reads differently from the classifier; the recorded opening-line fact holds two classifier verdicts against what the reader ACTS on, which is the same narrowing the printer's opening question asks"
+  },
+  {
+    "file": "src/line-verdict.ts",
     "symbol": "keepsTheLine",
     "importer": "src/parse/lines/paragraph-reader.ts",
     "kind": "vocabulary",
@@ -1107,6 +1114,13 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "OpeningLineReading",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "registry vocabulary: the opening-line fact the extent records on the block's reading"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "PAGE_BREAK",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
@@ -1181,6 +1195,13 @@
     "importer": "src/parse/lines/header-reader.ts",
     "kind": "vocabulary",
     "reason": "the classifier's context view; the header scan classifies its lines at a block start, like the reader"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ReaderContext",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "registry vocabulary: the reader's state a block-start line was classified in, carried into the extent so it can record what its opening line reads as"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -1797,6 +1818,13 @@
     "importer": "src/parse/line-shapes.ts",
     "kind": "vocabulary",
     "reason": "the list open around a block, in the two kinds `is_sibling_list_item?` tells apart; a leaf for the reason above"
+  },
+  {
+    "file": "src/reader-context.ts",
+    "symbol": "OpeningLineReading",
+    "importer": "src/parse/line-shapes.ts",
+    "kind": "vocabulary",
+    "reason": "whether a block's first line has one reading or two; a leaf because the AST, the registry and the shared verdict all declare against it"
   },
   {
     "file": "src/reader-context.ts",

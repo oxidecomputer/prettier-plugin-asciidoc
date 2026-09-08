@@ -51,6 +51,7 @@ import type {
 // one address for it.
 export type {
   AttributeRunReading,
+  OpeningLineReading,
   OpenList,
   ParagraphContext,
 } from "../reader-context.js";

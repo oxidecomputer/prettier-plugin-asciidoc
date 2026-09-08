@@ -131,9 +131,7 @@ describe("what a change has to say before it deletes a fact", () => {
     // derives the deleted set from base-to-head, so an entry whose
     // deletion is already IN the base declares a symbol the diff no
     // longer removes, and the stale check fails it as loudly as a
-    // missing one. This revision removes no published name - the
-    // reader's floating-title gate is renamed, and neither the old
-    // name nor the constant that went with it was exported - so the
+    // missing one. This revision removes no published name, so the
     // file is empty and the pin says so. The revision that next
     // deletes one fills the file and moves this pin with it.
     expect(loadDeletions().map((entry) => entry.symbol)).toEqual([]);

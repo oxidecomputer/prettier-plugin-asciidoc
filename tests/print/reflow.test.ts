@@ -255,7 +255,11 @@ describe("the atoms a word list becomes", () => {
 });
 
 /** A document-level reading, for a row that is not about the reading. */
-const ANY_READING: BlockReading = { context: "paragraph", openList: undefined };
+const ANY_READING: BlockReading = {
+  context: "paragraph",
+  openList: undefined,
+  openingLine: "sameEitherWay",
+};
 
 // The block with no node at all, which is the only replay input the
 // format suites never hand this module: all three call sites (a

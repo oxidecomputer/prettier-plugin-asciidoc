@@ -29,22 +29,27 @@ import type { InlineToken } from "../inline/tokens.js";
 import {
   holdsDescriptionSeparatorWord,
   LINE_COMMENT_HEAD,
+  type OpeningLineReading,
   type OpenList,
   type ParagraphContext,
   rawLineForm,
+  type ReaderContext,
 } from "../line-shapes.js";
 import {
+  classifyLine,
   classifyTrace,
   isContinuationLine,
   isIndentedContinuationLine,
   isLiteralLine,
   type LineKind,
 } from "./classify.js";
+import { blockStartContextIn, type Confinement } from "./scope.js";
 import type { SourceLine } from "./split.js";
 import type { ProseText } from "../build/paragraph.js";
 import {
   continuationPosition,
   FIRST_CONTINUATION,
+  insideAConfinedReader,
   keepsTheLine,
   LATER_CONTINUATION,
   lineVerdict,
@@ -166,6 +171,86 @@ export interface TextOpen {
    * words around it ({@link Paragraph.reflows}).
    */
   readonly comments: "content" | "skipped";
+}
+
+/**
+ * WHERE A PARAGRAPH-SHAPED EXTENT OPENS: the index of its first line,
+ * and what the reader that classified that line knew about it.
+ *
+ * The index alone is not enough, because the extent records what its
+ * OPENING line reads as ({@link OpeningLineReading},
+ * src/reader-context.ts) and that answer is the reader's: which
+ * context the line was classified in, and whether the reader was
+ * confined. Neither is a fact about the stream, so neither is on
+ * {@link ParagraphScan}.
+ *
+ * TWO ARMS, because the reader's very FIRST line has no context to
+ * build. Nothing stands above it inside the lines the scan walks, so
+ * no directive substitutes there and the line reads one way; and the
+ * one caller that opens a paragraph at index 0 is an item's confined
+ * reader, where a block-start context may not be built at all
+ * (`markerLineWinsAt`, lines/scope.ts, reads the line above with no
+ * absent case, on the invariant that same ordering establishes).
+ *
+ * Named by {@link paragraphOpen}'s signature, which is how the reader
+ * builds one; NOT exported, because every caller takes that result
+ * straight to {@link paragraphExtent} and knip's types bucket gates
+ * dead exported types at 0.
+ */
+type ParagraphOpen =
+  | {
+      /** Index of the paragraph's first line. */
+      readonly at: number;
+      /** The first line the reader walks; nothing stands above it. */
+      readonly reads: "theReadersFirstLine";
+    }
+  | {
+      /** Index of the paragraph's first line. */
+      readonly at: number;
+      /** A block start with lines above it. */
+      readonly reads: "aBlockStart";
+      /** The context that line was classified in. */
+      readonly reader: ReaderContext;
+      /**
+       * Whether the reader reads a section title at this position as
+       * the paragraph's own text ({@link insideAConfinedReader}).
+       */
+      readonly confined: boolean;
+    };
+
+/**
+ * Where the paragraph opening at `at` stands, for the reader that is
+ * about to read it.
+ *
+ * A TITLE READS AS THIS PARAGRAPH'S TEXT in a confined reader, and a
+ * FLOATING one does not: `next_block` owns the floating branch
+ * (parser.rb l.709) and `next_block` is exactly what parses an item's
+ * buffer and a compound interior, so a held `discrete` or `float`
+ * style makes a title line a heading at every depth (`sectionTitle`,
+ * lines/reader.ts). The two answers are one boolean here, which is
+ * what {@link insideAConfinedReader} is asked for.
+ * @param confinement - how that reader is confined, absent for the
+ *   document reader
+ * @param lines - the lines it walks
+ * @param at - index of the paragraph's first line
+ * @param floatingTitleHeld - whether the metadata run standing over
+ *   this paragraph names a floating-title style
+ * @returns the value {@link paragraphExtent} takes
+ */
+export function paragraphOpen(
+  confinement: Confinement | undefined,
+  lines: readonly SourceLine[],
+  at: number,
+  floatingTitleHeld: boolean,
+): ParagraphOpen {
+  return at === 0
+    ? { at, reads: "theReadersFirstLine" }
+    : {
+        at,
+        reads: "aBlockStart",
+        reader: blockStartContextIn(confinement, lines, at),
+        confined: confinement !== undefined && !floatingTitleHeld,
+      };
 }
 
 /** A run of reflowable paragraph text to tokenize as inline content. */
@@ -803,7 +888,8 @@ interface VerbatimRun {
  * paragraph is NOT consumed: `end` points AT it, so the caller
  * classifies it once, as a block start.
  * @param scan - the lines and the stream-wide facts
- * @param at - index of the paragraph's first line
+ * @param open - where the paragraph opens and what the reader that
+ *   classified that line knew ({@link ParagraphOpen})
  * @param context - which interrupting set applies (see ParagraphContext)
  * @param text - where the paragraph's text starts and how its `//`
  *   lines read (see {@link TextOpen})
@@ -812,17 +898,100 @@ interface VerbatimRun {
  */
 export function paragraphExtent(
   scan: ParagraphScan,
-  at: number,
+  open: ParagraphOpen,
   context: ParagraphContext,
   text: TextOpen,
 ): ParagraphBody {
-  const paragraph = new Paragraph(scan, at, context, text);
+  const paragraph = new Paragraph(scan, open.at, context, text);
   paragraph.read();
   return {
     tokens: paragraph.finish(),
-    reading: { context, openList: scan.openList },
+    reading: {
+      context,
+      openList: scan.openList,
+      openingLine: openingLineReading(scan.lines, open, paragraph.end),
+    },
     end: paragraph.end,
   };
+}
+
+/**
+ * WHETHER THE BLOCK'S OPENING LINE MEANS ONE THING OR TWO, which is
+ * what a prose block records about its own first line
+ * ({@link OpeningLineReading}, src/reader-context.ts).
+ *
+ * ASKED OF THE CLASSIFIER TWICE, once in the context the reader
+ * classified the line in and once with the substitution taken away,
+ * because the two answers ARE the question: nine block-START rules
+ * are held off while content stands substituted above the line
+ * (`classifyBlockStart`, lines/classify.ts), and a line no held-off
+ * rule claims reads the same either way. Nothing here re-implements a
+ * rule or reads a pattern of its own; the reader's own table answers
+ * both times, which is what makes the recorded fact the reader's
+ * verdict rather than a probe over the line's words. Both answers go
+ * through the one shape the reader itself re-reads
+ * ({@link insideAConfinedReader}): inside a list item's buffer or a
+ * compound block's interior a section title is that paragraph's text
+ * whatever stands above it, so its two readings agree there.
+ *
+ * THE NEIGHBOUR IS THE BLOCK'S OWN SECOND LINE, or none, and that is
+ * what makes the recorded fact one the output can carry back. The one
+ * two-line construct a block start reads is the underlined section
+ * title, and the fact says what REPLAYING THIS BLOCK'S LINES
+ * preserves: where the underline is also a delimiter it opens a block
+ * of its own, this paragraph is the title line alone, and no layout
+ * of that one line spells the pair. Recorded as a second reading
+ * there, the fact would be gone from the printer's own output and the
+ * reparse ledger would carry the difference.
+ *
+ * IT WIDENS AS WELL AS NARROWS, and the widening is the half a
+ * CONFINED reader feels: `blockStartContextIn` (lines/scope.ts) hands
+ * one no neighbour at all, because Ruby asks its two-line question
+ * from `next_section`'s loop alone. That is right for the reader's
+ * own classification, where a title inside a container is the
+ * paragraph's text; it is wrong for THIS question, which asks what
+ * the line means under a reading the reader did not take, and under
+ * which a held floating style makes the pair a heading at every depth
+ * (`sectionTitle`, lines/reader.ts). So the block's own second line
+ * is supplied wherever the block has one, and the setext arm is asked
+ * at every depth rather than at document level alone.
+ *
+ * THE SECOND CLASSIFICATION IS NEVER REACHED ON A DOCUMENT WITH NO
+ * DIRECTIVES, because it stands behind the walk that looks for a
+ * substituting one above the line. That walk is a GETTER on the
+ * context (`blockStartContextIn`, lines/scope.ts), so it is bound
+ * ONCE here and both readings read the bound value.
+ * @param lines - the lines the scan walked
+ * @param open - where the block opens ({@link ParagraphOpen})
+ * @param end - index after everything the extent held
+ * @returns what the block records about its own first line
+ */
+function openingLineReading(
+  lines: readonly SourceLine[],
+  open: ParagraphOpen,
+  end: number,
+): OpeningLineReading {
+  if (open.reads === "theReadersFirstLine") {
+    return "sameEitherWay";
+  }
+  // The spread resolves the getter, so the walk runs once for both
+  // readings below.
+  const substituted = {
+    ...open.reader,
+    nextLine: end > open.at + 1 ? lines[open.at + 1].text : undefined,
+  };
+  if (!substituted.substitutedContentAbove) {
+    return "sameEitherWay";
+  }
+  const readAs = (context: ReaderContext): LineKind["kind"] =>
+    (open.confined
+      ? insideAConfinedReader(classifyLine(lines[open.at].text, context))
+      : classifyLine(lines[open.at].text, context)
+    ).kind;
+  return readAs(substituted) ===
+    readAs({ ...substituted, substitutedContentAbove: false })
+    ? "sameEitherWay"
+    : "aBlockStartWithoutTheSubstitution";
 }
 
 /**
@@ -860,7 +1029,15 @@ export function continuationFoldExtent(
     // The fold is read against the plain-paragraph set plus the open
     // list's siblings, which is what `listContinuation` names; the
     // scan itself carries the same context under its own mode name.
-    reading: { context: "listContinuation", openList: scan.openList },
+    // Its opening line is a lone `+`, which no substitution above
+    // holds off - `isContinuationLine` is asked whatever stands over
+    // it (`classifyBlockStart`, lines/classify.ts) - so the fold's
+    // first line reads the same either way.
+    reading: {
+      context: "listContinuation",
+      openList: scan.openList,
+      openingLine: "sameEitherWay",
+    },
     end: paragraph.end,
   };
 }

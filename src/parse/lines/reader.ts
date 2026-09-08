@@ -95,6 +95,7 @@ import {
   continuationFoldExtent,
   literalParagraphExtent,
   paragraphExtent,
+  paragraphOpen,
   verbatimStyledExtent,
   type ParagraphScan,
   type TextOpen,
@@ -252,11 +253,8 @@ class BlockReader {
    * @returns the scan value
    */
   private get scan(): ParagraphScan {
-    return {
-      source: this.source,
-      lines: this.lines,
-      openList: openListIn(this.confinement),
-    };
+    const { source, lines, confinement } = this;
+    return { source, lines, openList: openListIn(confinement) };
   }
 
   /**
@@ -351,6 +349,14 @@ class BlockReader {
    * bookkeeping — the scan knows nothing about it — so it happens
    * here, at the open, after every decision that reads the held style
    * has been made.
+   *
+   * The block's OPENING line is asked its own question here, at the
+   * one place every prose block passes through, rather than at each
+   * of the three callers: the read position IS that line's index at
+   * all three, and the reader is the only half that holds the
+   * confinement, the lines and the held style the answer is read off
+   * ({@link paragraphOpen}, lines/paragraph-reader.ts). The style is
+   * read BEFORE the flush, because the flush is what releases it.
    * @param context - which interrupting set applies
    * @param text - where the text starts and how its `//` lines read
    *   (see {@link TextOpen})
@@ -358,8 +364,10 @@ class BlockReader {
    *   own question in ({@link BlockReading}, src/ast.ts)
    */
   private readText(context: ParagraphContext, text: TextOpen): ProseText {
+    const held = this.held.holdsFloatingTitleStyle();
     this.flushMetadata();
-    const body = paragraphExtent(this.scan, this.index, context, text);
+    const open = paragraphOpen(this.confinement, this.lines, this.index, held);
+    const body = paragraphExtent(this.scan, open, context, text);
     this.resume(body.end);
     return body;
   }

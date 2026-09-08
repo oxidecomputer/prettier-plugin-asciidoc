@@ -199,9 +199,9 @@ describe("a block-boundary construct under a body-bearing conditional", () => {
   // refused and the block's own lines are written back, because the
   // condition may go the other way: deleted, the directive leaves
   // `.Title` standing at a block start, where a folded `.Title ___`
-  // is a block title over nothing (issue #293). Where the packed line
-  // reads back as text - `___ more` is a break only on a line of its
-  // own - the join stands.
+  // is a block title over nothing (issue #293). The block's first
+  // SOURCE line is refused for the same reason wherever it too has
+  // two readings, whatever the packed line spells (issue #309).
   test.each([
     [
       "a setext pair",
@@ -218,10 +218,11 @@ describe("a block-boundary construct under a body-bearing conditional", () => {
       "ifndef::zz[body]\n.Title\n___\n",
       "ifndef::zz[body]\n.Title\n___\n",
     ],
+    // RED before #309: `ifndef::zz[body]\n___ more\n`.
     [
       "a break over text",
       "ifndef::zz[body]\n___\nmore\n",
-      "ifndef::zz[body]\n___ more\n",
+      "ifndef::zz[body]\n___\nmore\n",
     ],
   ])("%s reads as the paragraph the body opened", async (_n, input, out) => {
     await expectFormatted(input, out);
@@ -412,6 +413,119 @@ describe("a block title under a substituting directive", () => {
     ["an example block", "====\nifdef::x[body]\n.Title\npara\n====\n"],
     ["a list item", "* item\n+\nifdef::x[body]\n.Title\npara\n"],
   ])("a block title inside %s keeps its lines", async (_n, input) => {
+    await expectFormatted(input, input);
+  });
+});
+
+/**
+ * Issue #309: the block title's family, at the shapes whose PACKED
+ * line reads back as ordinary prose.
+ *
+ * `ifdef::x[body]` with `x` undefined is deleted, so the line under
+ * it stands at a block start; with `x` defined the same line
+ * substitutes `body`, and the line under it is prose inside the
+ * paragraph that body opened. Our reader takes the second reading, so
+ * the two source lines are one paragraph, and packing them writes one
+ * line that spells only that reading. Both programs read the source
+ * and the packed line differently, Ruby 2.0.26 and
+ * `@asciidoctor/core` 4.0.11 alike:
+ *
+ * - `'''` and `___` render `<hr>` over `<p>para</p>`, where the
+ *   packed `''' para` and `___ para` render one paragraph.
+ * - `<<<` renders a page-break div over the paragraph, where
+ *   `&lt;&lt;&lt; para` is one paragraph.
+ * - `image::a.png[]` renders an image block over the paragraph, where
+ *   `image::a.png[] para` is one paragraph.
+ * - `toc::[]` renders the toc's own placeholder over the paragraph,
+ *   where `toc::[] para` is one paragraph.
+ * - `Title` over `^^^^^` renders an `<h4>` over `<p>more</p>`, where
+ *   `Title ^^^^^ more` is one paragraph.
+ *
+ * The block's own lines are the one output both readings read as the
+ * input, so the packer writes those back. Every row here printed the
+ * packed line before the reader recorded what its opening line reads
+ * as ({@link OpeningLineReading}, src/reader-context.ts).
+ */
+describe("a block start under a substituting directive", () => {
+  test.each([
+    ["a thematic break", "ifdef::x[body]\n'''\npara\n"],
+    ["a markdown break near miss", "ifdef::x[body]\n___\npara\n"],
+    ["a page break", "ifdef::x[body]\n<<<\npara\n"],
+    ["a block macro", "ifdef::x[body]\nimage::a.png[]\npara\n"],
+    ["a toc macro", "ifdef::x[body]\ntoc::[]\npara\n"],
+    ["a setext pair", "ifdef::x[body]\nTitle\n^^^^^\nmore\n"],
+  ])("%s keeps its own line", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // The other two substituting spellings, one shape each: the
+  // mechanism is the substitution, not the directive's name.
+  test.each([
+    ["an ifndef body", "ifndef::x[body]\n'''\npara\n"],
+    ["an include", "include::p[]\n'''\npara\n"],
+  ])("%s refuses the same fold", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // The CONTROL that says the refusal is about the substitution and
+  // not about the line: `ifdef::x[]` carries no body, so it
+  // substitutes nothing and is deleted whichever way the condition
+  // goes. The break below it is at a real block boundary, keeps its
+  // block reading and gets the blank line a block of its own is
+  // printed with. Measured through both programs: the input and this
+  // output render alike.
+  test("a directive with no body leaves the break a block", async () => {
+    await expectFormatted(
+      "ifdef::x[]\n'''\npara\n",
+      "ifdef::x[]\n'''\n\npara\n",
+    );
+  });
+
+  // The CONTROL for the confined readers, which read one of these
+  // lines the same way whatever stands above them: no section opens
+  // inside a compound interior or a list item's buffer, so `== Head`
+  // is that paragraph's text under both readings and the fold stands
+  // (issue #293's own rows say the same at document level).
+  test.each([
+    [
+      "an open block",
+      "--\nifdef::x[body]\n== Head\npara\n--\n",
+      "--\nifdef::x[body]\n== Head para\n--\n",
+    ],
+    [
+      "a list item",
+      "* item\n+\nifdef::x[body]\n== Head\npara\n",
+      "* item\n+\nifdef::x[body]\n== Head para\n",
+    ],
+  ])("a heading inside %s still folds", async (_n, input, out) => {
+    await expectFormatted(input, out);
+  });
+
+  // A FLOATING title is the exception to that control, and it was red
+  // before the refusal read the held style: `next_block` owns the
+  // floating branch (parser.rb l.709) and `next_block` is what parses
+  // an item's buffer and a compound interior, so both programs render
+  // an `<h2 class="float">` above `<p>para</p>` where the directive is
+  // deleted, and the folded `== Head para` renders one heading and no
+  // paragraph.
+  test.each([
+    ["a float style", "--\n[float]\nifdef::x[body]\n== Head\npara\n--\n"],
+    ["a discrete style", "--\n[discrete]\nifdef::x[body]\n== Head\npara\n--\n"],
+    [
+      "a float style in an item",
+      "* item\n+\n[float]\nifdef::x[body]\n== Head\npara\n",
+    ],
+    // The SETEXT spelling, which is the row that needs the block's
+    // own second line to be offered to a confined reader at all: the
+    // three rows above spell the title with `==` and read no
+    // neighbour, so they pass with the neighbour withheld while this
+    // one prints `--\n[float]\nifdef::x[body]\nTitle ^^^^^ more\n--\n`,
+    // render-different under both programs.
+    [
+      "a float style over a setext pair",
+      "--\n[float]\nifdef::x[body]\nTitle\n^^^^^\nmore\n--\n",
+    ],
+  ])("a heading under %s keeps its own line", async (_n, input) => {
     await expectFormatted(input, input);
   });
 });

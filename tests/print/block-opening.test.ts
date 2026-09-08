@@ -39,7 +39,11 @@ function atom(text: string): Atom {
 function itemLayout(prefix: string, replay: readonly string[]): BlockLayout {
   return blockLayout(
     replay,
-    { context: "listItemText", openList: { kind: "marker", style: "-" } },
+    {
+      context: "listItemText",
+      openList: { kind: "marker", style: "-" },
+      openingLine: "sameEitherWay",
+    },
     { at: "behindAPrefix", prefix },
     "listMarker",
   );
