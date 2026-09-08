@@ -4,12 +4,12 @@
  * (the proof shape the decision-cells record names: "the printer
  * writes bytes from which the reader re-derives this fact", landed
  * three times already: #181's continuation count at
- * `ItemBody.trailingContinuation` (`tests/format/trailing-continuation.test.ts`),
- * #178's withheld tail in
- * `tests/format/description-list.test.ts`, and #175's ignore pragma at
- * `BlockNodeBase.ignoredByPragma` (`tests/format/ignore-pragma.test.ts`,
- * where the pragma COMMENT is the surviving line a second read
- * re-derives the mark from); see the ledger's three
+ * `ItemBody.trailingContinuation`, proved by
+ * `tests/format/trailing-continuation.test.ts`; #178's withheld tail in
+ * `tests/format/description-list.test.ts`; and #175's ignore pragma at
+ * `BlockNodeBase.ignoredByPragma`, proved by
+ * `tests/format/ignore-pragma.test.ts`, where the pragma COMMENT is the
+ * surviving line a second read re-derives the mark from; see the three
  * `landedLemma: true` rows for the exact citations) or EXEMPT, with a
  * reason. The shape is `scripts/metrics/shape-census.ts`'s: enumerate every
  * property mechanically, classify every one of them by hand, and fail

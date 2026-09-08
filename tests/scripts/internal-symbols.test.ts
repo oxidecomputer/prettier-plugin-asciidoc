@@ -16,10 +16,13 @@
  * not read them (`LINKS_NOT_SCANNED`, scripts/internal-symbols.ts):
  * the rows have to spell a tag that resolves nowhere and one that
  * resolves twice, and a gate reading its own fixtures would fail on
- * them.
+ * them. The paths the rows write are fixtures too, and none of them
+ * exists: a citation naming a file the gate read no text for is
+ * skipped, which is what keeps these rows out of its own report.
  */
 import { describe, expect, test } from "vitest";
 import {
+  DELETION_LEDGER,
   LINKS_NOT_SCANNED,
   bodiesIn,
   checkLink,
@@ -116,7 +119,9 @@ describe("what the scan claims as a link tag", () => {
 
   test("the files whose tags are fixtures are pinned", () => {
     // An exemption nobody can widen by accident: these two write tags
-    // that cannot resolve, and every other file's are read.
+    // that cannot resolve, and every other file's are read. The
+    // document that describes the scan is NOT one of them: prose can
+    // drop the braces and name the tag in words.
     expect([...LINKS_NOT_SCANNED].toSorted()).toEqual([
       "tests/scripts/internal-citations.test.ts",
       "tests/scripts/internal-symbols.test.ts",
@@ -314,5 +319,43 @@ describe("holding a link tag to the tree", () => {
     expect(checkLink(split, names([]), index).join("")).toContain(
       "names no ONE file declaring Reader and method",
     );
+  });
+});
+
+describe("a path written the way a document writes one", () => {
+  test("a backticked path is claimed the way a bare one is", () => {
+    // Which the documents and the ledger notes need: a path in prose
+    // is a code span, and the two cases that reached review were both
+    // written that way.
+    expect(symbolCitations("docs/a.md", "`beta` in `src/alpha.ts`")).toEqual([
+      { at: "docs/a.md:1", named: "beta", file: "src/alpha.ts" },
+    ]);
+  });
+
+  test("a name a JSON note writes beside a path is claimed", () => {
+    expect(
+      symbolCitations("scripts/a.json", '{ "note": "`beta` (src/alpha.ts)" }'),
+    ).toEqual([
+      { at: "scripts/a.json:1", named: "beta", file: "src/alpha.ts" },
+    ]);
+  });
+
+  test("a word between the name and the path is still prose", () => {
+    // Adjacency and not scope, whichever file the prose is written in.
+    expect(
+      symbolCitations("docs/a.md", "the `beta` rule in `src/alpha.ts`"),
+    ).toEqual([]);
+  });
+});
+
+describe("the ledger whose names are gone on purpose", () => {
+  test("neither scan reads the deletion ledger", () => {
+    // Its rows are ABOUT what a change removed, so a row whose name
+    // still resolved would be the broken one. Every other ledger's
+    // notes are read.
+    const row = '{ "symbol": "`beta` (src/alpha.ts)", "why": "{@link beta}" }';
+    expect(symbolCitations(DELETION_LEDGER, row)).toEqual([]);
+    expect(linkCitations(DELETION_LEDGER, row)).toEqual([]);
+    expect(symbolCitations("scripts/other.json", row)).toHaveLength(1);
   });
 });

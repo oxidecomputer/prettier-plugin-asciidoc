@@ -52,6 +52,7 @@ import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
 import { ignoredIn, type Ignored } from "./lib/ignored.js";
 import { checkFragments, documentsOf } from "./internal-anchors.js";
 import {
+  NO_NAMES,
   SYMBOL_SHAPE,
   bodiesIn,
   checkLink,
@@ -140,11 +141,14 @@ export interface Tree {
    */
   readonly files: ReadonlySet<string>;
   /**
-   * Every `.ts` file under {@link NAMED_ROOTS}, as written. The symbol
-   * scan reads comments and declarations from ALL THREE trees, where
-   * the path scan reads comments from `src` alone: a test's comment
-   * names the function it pins as freely as a module names its
-   * neighbour, and a rename rots both.
+   * Every file the symbol scan reads a citation out of, as written:
+   * the `.ts` files of all three of {@link NAMED_ROOTS}, the markdown
+   * of {@link DOCUMENT_ROOT} and {@link ROOT_DOCUMENTS}, and the JSON
+   * ledgers, whose `note` and `reason` prose names symbols exactly the
+   * way a comment does. The path scan reads comments from `src` alone;
+   * the symbol scan reads all of these, because a test's comment names
+   * the function it pins as freely as a module names its neighbour, a
+   * document names one in a sentence, and a rename rots all of them.
    */
   readonly texts: ReadonlyMap<string, string>;
   /** Every markdown file this gate reads, as written. */
@@ -355,20 +359,17 @@ export function readTree(root: string): Tree {
     }
     return readFileSync(absolute, "utf8");
   };
-  const ignored = ignoredIn(root);
-  const files = new Set(NAMED_ROOTS.flatMap((t) => walk(root, t, ignored)));
+  const skip = ignoredIn(root);
+  const files = new Set(NAMED_ROOTS.flatMap((t) => walk(root, t, ".ts", skip)));
   const sources = new Map<string, readonly string[]>();
-  for (const one of walk(root, SOURCE_ROOT, ignored)) {
+  for (const one of walk(root, SOURCE_ROOT, ".ts", skip)) {
     sources.set(one, sourceLines(bytes(one)));
   }
-  const texts = new Map<string, string>();
-  for (const relative of files) {
-    texts.set(relative, bytes(relative));
-  }
-  const documents = documentsOf(root, ignored);
-  const markdown = new Map(
-    documents.scanned.map((one): [string, string] => [one, bytes(one)]),
-  );
+  const documents = documentsOf(root, skip);
+  const ledgers = NAMED_ROOTS.flatMap((t) => walk(root, t, ".json", skip));
+  const read = (one: string): [string, string] => [one, bytes(one)];
+  const markdown = new Map(documents.scanned.map(read));
+  const texts = new Map([...files, ...documents.scanned, ...ledgers].map(read));
   return {
     minimums: bytes(MINIMUMS_FILE),
     lintConfig: bytes(ESLINT_FILE),
@@ -381,23 +382,29 @@ export function readTree(root: string): Tree {
 }
 
 /**
- * Every TypeScript file under one tree that the checkout TRACKS, in a
- * stable order. A path the checkout ignores is not this repository's
- * to be held to (`ignoredIn`, scripts/lib/ignored.ts).
+ * Every file of one extension under one tree that the checkout TRACKS,
+ * in a stable order. A path the checkout ignores is not this
+ * repository's to be held to (`ignoredIn`, scripts/lib/ignored.ts).
  * @param root - the repository root
  * @param tree - the directory to walk, relative to the root
- * @param ignored - whether a path is one the checkout ignores
+ * @param extension - the suffix a scanned file ends in
+ * @param skip - whether a path is one the checkout ignores
  * @returns repo-relative paths, sorted
  */
-function walk(root: string, tree: string, ignored: Ignored): string[] {
+function walk(
+  root: string,
+  tree: string,
+  extension: string,
+  skip: Ignored,
+): string[] {
   const absolute = path.join(root, tree);
   if (!existsSync(absolute)) {
     return [];
   }
   return readdirSync(absolute, { recursive: true, encoding: "utf8" })
-    .filter((name) => name.endsWith(".ts"))
+    .filter((name) => name.endsWith(extension))
     .map((name) => path.posix.join(tree, name.replaceAll(path.sep, "/")))
-    .filter((relative) => !ignored(relative))
+    .filter((relative) => !skip(relative))
     .toSorted();
 }
 
@@ -739,14 +746,14 @@ function checkRepoPaths(report: Report, tree: Tree): void {
  * @param tree - the checkout
  */
 function checkNames(report: Report, tree: Tree): void {
-  const read = [...tree.texts].map(([file, text]) => ({
+  const sources = [...tree.texts].map(([file, text]) => ({
     file,
     text,
-    names: namesIn(file, text),
+    names: file.endsWith(".ts") ? namesIn(file, text) : NO_NAMES,
   }));
-  const held = new Map(read.map((one) => [one.file, one.names]));
+  const held = new Map(sources.map((one) => [one.file, one.names]));
   const index = symbolIndex(held);
-  for (const { file, text, names } of read) {
+  for (const { file, text, names } of sources) {
     for (const citation of symbolCitations(file, text)) {
       const cited = held.get(citation.file);
       if (cited === undefined) {
@@ -897,14 +904,11 @@ function main(list: boolean): void {
  * @throws {TypeError} on an unknown argument
  */
 export function parseArguments(argv: readonly string[]): boolean {
-  let list = false;
-  for (const argument of argv) {
-    if (argument !== "--list") {
-      throw new TypeError(`internal-citations: unknown argument ${argument}`);
-    }
-    list = true;
+  const unknown = argv.find((one) => one !== "--list");
+  if (unknown !== undefined) {
+    throw new TypeError(`internal-citations: unknown argument ${unknown}`);
   }
-  return list;
+  return argv.includes("--list");
 }
 
 if (import.meta.main) {

@@ -1083,8 +1083,15 @@ module.
 A third scan holds the SYMBOLS a comment names in prose, which is the same fact
 one step out: a path says which file, and only the name says what in it. A
 symbol citation is a backtick-quoted, identifier-shaped run written immediately
-before a repository `.ts` path, across all three trees. Four spellings are
-claimed, and they are the ones the repo writes:
+before a repository `.ts` path. It is read from all three trees, from the
+markdown above, and from the JSON ledgers, registries and manifests under
+`scripts` and `tests`, whose `note` and `reason` prose names symbols exactly the
+way a comment does. That walk follows `.gitignore` like every other, so a
+machine-local config file sitting under `scripts` is not read. Prose is where a
+deleted function survives longest: a name a commit takes out of the code stays
+readable and wrong in the sentence about it, and turning this scan on those two
+surfaces found two such names at once, one in this file and one in a ledger
+note. Five spellings are claimed, and they are the ones the repo writes:
 
 - ``(`optionalGroup`, src/parse/line-shapes.ts)`` - a comma and a parenthesis;
 - `` `delimitedExtent` in src/parse/lines/delimited-reader.ts `` - one of the
@@ -1092,7 +1099,9 @@ claimed, and they are the ones the repo writes:
 - ``(`stacksAsMetadata`,`` then the path on the next comment line - the
   80-column rule breaks the aside as often as not;
 - `` `ParagraphNode.blankBelowAnchorLine` (src/ast.ts) `` - a qualified name,
-  whose every segment must be there.
+  whose every segment must be there;
+- `` `printsDrainShield` in `src/print/join.ts` `` - the path in a code span,
+  which is how a document and a JSON note write one.
 
 The file must DECLARE the name (function, class, interface, type, enum,
 variable, property, accessor or method) or IMPORT it; the walk is the TypeScript
@@ -1101,6 +1110,11 @@ deliberately NOT claimed: a name with any other word between it and the path
 (``the `BackslashEscape` rule in src/parse/inline/rules.ts`` is prose about a
 rule, not a citation of one), a run that is not identifier-shaped, and a name
 whose first segment is a runtime global (`Promise.all`).
+
+One ledger is exempt and named at `DELETION_LEDGER`: `scripts/deletions.json`
+writes rows that are ABOUT what a change removed, so a row whose name still
+resolved would be the broken one. Every other ledger's notes are read, because a
+note naming a function that has since gone is the rot this scan is for.
 
 **The no-text skip.** A symbol beside a path this gate has no text for is
 SKIPPED, not failed. "Does this file have this name" is unanswerable without the
@@ -1127,7 +1141,7 @@ which is what TypeScript resolves a tag against, so whatever else in the tree
 shares the spelling is not that reader's problem - or, failing that, when
 exactly ONE file in the index declares every segment. The two other answers are
 the two failures, and they are different: no file at all is a name that has
-moved or was never there (`{@link lowersHasText}`), and several files is a name
+moved or was never there (a tag naming `lowersHasText`), and several files is a
 whose reader needs a path, which is what the other spelling carries
 (``(`printedText`, src/print/blocks.ts)``, where `printedText` is also declared
 in `src/print/span-edges.ts`). A qualified name is held to ONE file declaring
@@ -1136,7 +1150,9 @@ Not claimed: a target that is not identifier-shaped (a URL), and one whose first
 segment is a runtime global. The two files whose link tags are FIXTURES are
 exempt and listed at `LINKS_NOT_SCANNED`: they have to write a tag that resolves
 nowhere and one that resolves twice, and a gate reading its own fixtures would
-fail on them.
+fail on them. This document is not among them and does not need to be: prose can
+drop the braces and name the tag in words, which keeps the illustration and
+keeps every tag written here under the gate.
 
 A fifth scan holds the FRAGMENT LINKS this repository's markdown writes about
 its own headings, over `docs/*.md`, `README.md` and `CONTRIBUTING.md`. This file
@@ -1222,12 +1238,16 @@ Proves: every mutation exception and every coverage deferral names a symbol this
 repository declares and quotes source that symbol still carries, every symbol a
 comment names beside one of this repository's files is a name that file has,
 every link tag names one place in the tree, and every fragment link in these
-documents lands on a heading that is there. It does NOT read the `reason` field
-(free prose, where the next quoted run is as likely to be a function named three
-clauses later); it does not hold a backticked name written with neither a path
-nor a tag, so prose that drops both drops its check with them; and it does not
-check that the quoted code still MEANS what the row says about it - which is the
-failure mode a re-cite has to be reviewed for, not gated on.
+documents lands on a heading that is there. It does NOT read an exception row's
+`reason` as PINS (free prose, where the next quoted run is as likely to be a
+function named three clauses later; the symbol scan still reads the names that
+prose writes beside a path); it does not hold a backticked name written with
+neither a path nor a tag, because this repository's prose quotes Asciidoctor's
+Ruby constants, the oracle's functions, Prettier's, Stryker's, vitest's,
+TypeScript's and JavaScript's own as freely as it names its own, and a scan over
+bare names reports mostly those; and it does not check that the quoted code
+still MEANS what the row says about it - which is the failure mode a re-cite has
+to be reviewed for, not gated on.
 
 ### `bun run printer-reads` - the census's unread claims, held to the printer
 
@@ -2180,13 +2200,14 @@ repository only: a `--base` archive or `--root` checkout is measured, not judged
 **Why cyclomatic is report-only.** Cyclomatic complexity counts decision points
 and is blind to nesting, so a flat twelve-arm `switch` scores the same as three
 nested loops with labelled breaks — and for a parser that matters: dispatch
-tables score badly and read fine. The live case: `itemContent`
-(`src/parse/lines/list-reader.ts`) is a flat `switch` over `LineKind`, one arm
-per branch of Asciidoctor's `read_lines_for_list_item`, cyclomatic 11, cognitive
-below 11. Gating on the cyclomatic tail would have asked for that `switch` to
-become a handler table keyed by a string — better score, worse code. So the row
-stays on the table and the script prints the offending functions by name;
-cognitive complexity is the one that is ratcheted.
+tables score badly and read fine. The live case: `blockLine`
+(`src/parse/lines/reader.ts`) is four early-return guards and then a flat
+`switch` over `LineKind`, one arm per kind of line that opens a block: over the
+cyclomatic tail, under the cognitive ratchet. Gating on the cyclomatic tail
+would have asked for that `switch` to become a handler table keyed by a string -
+better score, worse code. So the row stays on the table and the script prints
+the offending functions by name; cognitive complexity is the one that is
+ratcheted.
 
 **What disagreement between the rows tells you.** The pattern of disagreement is
 the diagnosis:

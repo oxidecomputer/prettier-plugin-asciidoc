@@ -43,8 +43,8 @@ export const CYCLOMATIC_VALUE = /complexity of (?<value>\d+)/v;
 /** SonarSource's message likewise. */
 export const COGNITIVE_VALUE = /Complexity from (?<value>\d+)/v;
 
-// eslint names the function in the message: "Function 'itemContent'
-// has a complexity of 11." Arrow functions and methods are spelled
+// eslint names the function in the message: "Function 'blockLine'
+// has a complexity of 12." Arrow functions and methods are spelled
 // differently, hence the loose quote match.
 const NAMED = /'(?<name>[^']+)'/v;
 

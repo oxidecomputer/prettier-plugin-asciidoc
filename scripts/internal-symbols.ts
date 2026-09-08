@@ -60,10 +60,13 @@ import ts from "typescript";
  * across lines as often as not), the parenthesis that usually opens
  * the aside, and ONE of the four prepositions the other phrasing uses
  * ("`delimitedExtent` in src/parse/lines/delimited-reader.ts"). A word outside
- * that set ends the separator, so nothing binds across a clause.
+ * that set ends the separator, so nothing binds across a clause. The
+ * path may itself be backticked, which is how the markdown writes one
+ * ("`printsDrainShield` in `src/print/join.ts`"): a code span there is
+ * what a comment's bare path is in a `.ts` file.
  */
 const CITED =
-  /`(?<named>[^`\n]+)`(?:[\s,]|\/\/|\*)*(?:(?:in|of|from|at)\b)?(?:[\s,]|\/\/|\*)*\(?(?<file>(?:src|tests|scripts)\/[\w.\/\-]*\.ts)/gv;
+  /`(?<named>[^`\n]+)`(?:[\s,]|\/\/|\*)*(?:(?:in|of|from|at)\b)?(?:[\s,]|\/\/|\*)*\(?`?(?<file>(?:src|tests|scripts)\/[\w.\/\-]*\.ts)/gv;
 
 /**
  * A link tag, with the wrap a long one takes: the 80-column rule
@@ -97,6 +100,21 @@ export const LINKS_NOT_SCANNED = new Set([
   "tests/scripts/internal-citations.test.ts",
   "tests/scripts/internal-symbols.test.ts",
 ]);
+
+/**
+ * The file whose prose names symbols that are GONE, on purpose.
+ *
+ * The deletion ledger's rows are ABOUT what a change removed: each one
+ * names the symbol it deleted and writes the prose that justified it,
+ * so a row whose name still resolved would be the broken one. Neither
+ * scan reads it. Every OTHER ledger's notes are read, because a note
+ * naming a function that has since gone is the rot they check for.
+ *
+ * Exported so the exemption is pinned and visible
+ * (tests/scripts/internal-symbols.test.ts); no other consumer.
+ * @internal
+ */
+export const DELETION_LEDGER = "scripts/deletions.json";
 
 /**
  * An identifier, or a dotted or `#`-qualified path of them, with an
@@ -176,6 +194,20 @@ export interface FileNames {
   /** What it brings in, and some other file declares. */
   readonly imported: ReadonlySet<string>;
 }
+
+/**
+ * The names of a file that declares none: the markdown and the JSON
+ * ledgers, whose prose cites this repository's symbols but introduces
+ * none of its own.
+ *
+ * Exported for the gate (scripts/internal-citations.ts), which hands
+ * it to every file it read that is not TypeScript; no other consumer.
+ * @internal
+ */
+export const NO_NAMES: FileNames = {
+  declared: new Set(),
+  imported: new Set(),
+};
 
 /**
  * Every name a file declares or imports.
@@ -393,7 +425,8 @@ function namedBy(node: ts.Node): string | undefined {
 }
 
 /**
- * Every symbol citation written in one file.
+ * Every symbol citation written in one file, or none where the file is
+ * the deletion ledger ({@link DELETION_LEDGER}).
  *
  * Scanned over the file's whole text rather than over its comments
  * alone, for the reason the path scan gives: extracting comments needs
@@ -409,6 +442,9 @@ function namedBy(node: ts.Node): string | undefined {
  */
 export function symbolCitations(file: string, text: string): SymbolCitation[] {
   const citations: SymbolCitation[] = [];
+  if (file === DELETION_LEDGER) {
+    return citations;
+  }
   for (const match of text.matchAll(CITED)) {
     const groups: Record<string, string | undefined> = match.groups ?? {};
     const named = groups.named ?? "";
@@ -440,7 +476,7 @@ export function symbolCitations(file: string, text: string): SymbolCitation[] {
  */
 export function linkCitations(file: string, text: string): LinkCitation[] {
   const citations: LinkCitation[] = [];
-  if (LINKS_NOT_SCANNED.has(file)) {
+  if (LINKS_NOT_SCANNED.has(file) || file === DELETION_LEDGER) {
     return citations;
   }
   for (const match of text.matchAll(LINKED)) {

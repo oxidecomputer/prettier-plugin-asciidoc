@@ -303,6 +303,8 @@ const FIXTURE: Tree = {
     ["src/alpha.ts", ALPHA],
     ["tests/alpha.test.ts", HERE],
     ["scripts/alpha.ts", THERE],
+    ["docs/two.md", "the one that moved (`beta`, `src/alpha.ts`)"],
+    ["scripts/two.json", '{ "note": "`beta` (src/alpha.ts) went" }'],
   ]),
   markdown: new Map([["docs/one.md", "## A: b\n[held](#a-b) [dead](#ab)\n"]]),
   present: new Set(["docs/one.md"]),
@@ -372,8 +374,17 @@ describe("the gate over a whole checkout", () => {
     );
   });
 
+  test("a name a document or a ledger note writes is held too", () => {
+    // Two record commits left prose naming a function their own commit
+    // deleted, one in a document and one in a ledger note, and no scan
+    // read either file.
+    const dead = report.failures.filter((one) => one.endsWith("no beta"));
+    const where = dead.map((one) => one.split(":")[0]);
+    expect(where).toEqual(["src/alpha.ts", "docs/two.md", "scripts/two.json"]);
+  });
+
   test("a symbol the cited file has resolves, and one it lacks fails", () => {
-    expect(report.symbols).toBe(2);
+    expect(report.symbols).toBe(4);
     expect(report.failures).toContainEqual(
       expect.stringContaining(
         "`beta` names src/alpha.ts, which declares and imports no beta",
@@ -430,7 +441,7 @@ describe("the gate over a whole checkout", () => {
   });
 
   test("and nothing else failed", () => {
-    expect(report.failures).toHaveLength(11);
+    expect(report.failures).toHaveLength(13);
   });
 });
 
@@ -548,25 +559,16 @@ describe("this repository", () => {
     expect(NAMED_ROOTS).toEqual(["src", "tests", "scripts"]);
   });
 
-  test("the walk finds the source tree, and the trees it may name", () => {
+  test("the walk finds every surface a citation is written on", () => {
+    // A walk that silently stopped finding files would report a clean
+    // run over nothing. The path scan still reads `src` alone.
     const tree = readTree(ROOT);
-    expect(tree.files.has("tests/scripts/internal-citations.test.ts")).toBe(
-      true,
-    );
-    expect(tree.files.has("scripts/internal-citations.ts")).toBe(true);
+    expect(tree.sources.has("src/print/reflow.ts")).toBe(true);
+    expect(tree.texts.has("scripts/deletions.json")).toBe(true);
     expect(tree.markdown.has("docs/harnesses.md")).toBe(true);
     expect(tree.markdown.has("CONTRIBUTING.md")).toBe(true);
     expect(tree.present.has("AGENTS.md")).toBe(true);
-    // The path scan still reads `src` alone.
-    expect(tree.sources.has("tests/scripts/internal-citations.test.ts")).toBe(
-      false,
-    );
-  });
-
-  test("the walk finds the source tree", () => {
-    // A walk that silently stopped finding files would report a clean
-    // run over nothing.
-    expect(readTree(ROOT).sources.has("src/print/reflow.ts")).toBe(true);
+    expect(tree.sources.has("scripts/internal-citations.ts")).toBe(false);
   });
 
   test("every repo-internal citation holds", () => {
