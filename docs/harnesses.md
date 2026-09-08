@@ -251,6 +251,21 @@ construct must teach these generators in the same commit. The grids exist
 because the corpus can be blind to a construct (the #44 corruption had zero
 corpus instances).
 
+The standing grid also carries a few NAMED rows the product cannot reach, each
+one a position no container spells: the setext-shaped spellings, and the four
+`drained-run` items whose first block is a `//`-headed line carrying more than
+`//`-headed words (`///c x`, `/// +`, `///*b*`, `///https://x[y]`). A run in
+that position is one `Reader#skip_line_comments` takes and `parse_list_item`
+drops at the item's buffer end, and every item container puts a `+` between the
+marker line and the body, which is a line the peek stops on, so the product
+generates no document where that drain runs under a marker line (issue #267).
+The spellings are not pair-alphabet members either. That route needs two levers,
+both measured against these four rows: members squared into the pair product,
+which spells no such document on its own because the pair grid's item container
+wraps its body in a marker line and a `+`, and a fourth pair container for the
+bare marker head. The alphabet also holds no near miss by the ruling in #285,
+and every spelling here is one.
+
 Proves: where output moved, the new output still means what the input meant —
 the only harness that proves fidelity per difference.
 
@@ -571,8 +586,9 @@ every coordinate the grids reach around it, each under every byte operator its
 own grid crosses with that changes its bytes. When the registry cannot spell the
 bug, that is the finding: the same change extends whichever dimension is
 missing, the construct alphabet, the container set or the byte operators, until
-it can. The census pins move with the extension, and they are what makes this
-mechanical rather than a promise: rule (iii) of
+it can, or adds a named row where the unreachable coordinate is a single
+position rather than a dimension. The census pins move with the extension, and
+they are what makes this mechanical rather than a promise: rule (iii) of
 `scripts/metrics/shape-census.ts` matches each roster against the registry in
 both directions and rule (v) pins the realized grid sizes, so a new container or
 operator fails `bun run metrics` until its numbers are moved deliberately, and

@@ -33,8 +33,37 @@ import {
 } from "./shape-registry.js";
 
 /**
+ * The comment-run spellings a head drain takes whose PARAGRAPH
+ * carries more than `//`-headed words: a second word, a hard break, a
+ * formatting span, a macro. One per inline class, which is the axis
+ * that separates them: `Reader#skip_line_comments` takes a line by
+ * its bare `//` head (reader.rb l.332-345) while `CommentLineRx`
+ * exempts a third slash, so every line here is one the drain deletes
+ * and the classifier reads as a paragraph, and any predicate that
+ * asks about the run's WORDS or its inline children instead of its
+ * line head answers one of the four wrong (issue #267).
+ *
+ * The bare `// c` and `///c` spellings are the `line-comment`
+ * dimension's own body and near miss and are not repeated here: both
+ * were already answered, and neither carries anything past the head.
+ */
+const DRAINED_RUN_LINES: ReadonlyArray<{
+  /** Stable name: the inline class the line's tail carries. */
+  readonly id: string;
+  /** The whole line, as it stands under the item's marker. */
+  readonly line: string;
+}> = [
+  { id: "second-word", line: "///c x" },
+  { id: "hard-break", line: "/// +" },
+  { id: "span", line: "///*b*" },
+  { id: "macro", line: "///https://x[y]" },
+];
+
+/**
  * The standing selection: the delimited-block constructs ×
  * all containers × the termination/coda/garnish perturbations.
+ * The setext pins and the drained-run rows below stand outside that
+ * product, each for a reason written where it is pushed.
  * Deterministic and exhaustive; no randomness anywhere in this mode.
  * @returns the realized grid, in a stable order
  */
@@ -100,6 +129,36 @@ export function standingGrid(): Shape[] {
       family: UNDERLINED_SECTION_TITLE_FAMILY,
     },
   );
+  // The one position the head drain runs in, spelled explicitly
+  // because no product reaches it. `parse_list_item` peeks past a
+  // `//`-headed run before it reads an item's FIRST block (parser.rb
+  // l.1362-71), so the run has to stand directly under the marker
+  // line, and every item container puts a `+` between the two, which
+  // is a line the peek stops on. The same four lines under `* item` /
+  // `+`, at the top of a document, or under a `term::` (whose own
+  // drain asks the LINE's head and takes all four already) reach no
+  // decision these rows are for, so the container set spells no
+  // coordinate that stands in for this one.
+  //
+  // The tail is the `+` the source wrote, and one blank above it: two
+  // blanks and an ordered marker were measured to fail the same way
+  // and are left to tests/format/list-item-trailing-comment.test.ts,
+  // which pins them row by row.
+  //
+  // The spellings are NOT pair-alphabet members either. That route
+  // needs two levers, and both were measured against these four rows:
+  // members squared into the pair product, which spells no such
+  // document on its own because the pair grid's item container wraps
+  // its body in a marker line AND a `+`, and a fourth pair container
+  // for the bare marker head. The alphabet also holds no near miss by
+  // ruling (issue #285), and every spelling here is one.
+  for (const run of DRAINED_RUN_LINES) {
+    shapes.push({
+      id: `drained-run/${run.id}/marker-item`,
+      input: `* a\n${run.line}\n\n+\n`,
+      renderBlind: false,
+    });
+  }
   return shapes;
 }
 
