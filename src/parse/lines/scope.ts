@@ -28,6 +28,23 @@ import type { LocationIndex } from "../positions.js";
 import type { SourceLine } from "./split.js";
 
 /**
+ * Which reading `parse_list_item` gives one item's FIRST
+ * `next_block` call - the two values of `text_only:` at parser.rb
+ * l.1367-74, named for what each one lets the ladder read.
+ *
+ * A union rather than a boolean because the two names ARE the
+ * reading: `next_block`'s own `if text_only` (l.571) is the branch
+ * that decides whether the layout-break arm is reachable at all, and
+ * a reader of the value should not have to remember which way a flag
+ * points.
+ */
+export type FirstBlockLadder =
+  /** `text_only: true` - the layout-break arm is skipped. */
+  | "textOnly"
+  /** No `text_only` - every arm of the ladder is reachable. */
+  | "everyArm";
+
+/**
  * How a reader is confined, when it is not the document reader.
  */
 export type Confinement =
@@ -40,6 +57,32 @@ export type Confinement =
       readonly kind: "item";
       /** The item's own list - the one-list ancestry. */
       readonly list: OpenList;
+      /**
+       * Which arms of `next_block`'s ladder are live at the item's
+       * FIRST block start - `text_only: has_text ? nil : true`
+       * (parser.rb l.1367-74), read as the two readings it picks
+       * between. `text_only` skips the whole layout-break arm
+       * (l.591-596) and leaves the list arms (l.686-704) to claim the
+       * line; without it the break arm runs first, which is the order
+       * this fact exists to reproduce.
+       *
+       * `"textOnly"` FOR EVERY MARKER ITEM. `has_text` is set for a
+       * ulist, olist or colist item at l.1315 and cleared again at
+       * l.1369-70 (`has_text = nil unless dlist`) whenever the item's
+       * content is adjacent - and adjacent is the only case that
+       * reaches a first block start at the buffer's head, because a
+       * blank or an erased `+` in front of the first block is itself
+       * the line at that index and no block starts on it.
+       *
+       * A DESCRIPTION ITEM IS THE EXCEPTION, and `unless dlist` is
+       * the whole of why: its `has_text` survives the clearing, so it
+       * is still whatever the TERM LINE said (l.1304, `has_text =
+       * true if (item_text = match[3])`). A term carrying an inline
+       * description therefore runs its first `next_block` with no
+       * `text_only` at all - even though its content is adjacent -
+       * and the layout break wins there.
+       */
+      readonly firstBlock: FirstBlockLadder;
       /** The item's own tail-safety (ItemExtent.tailSafe). */
       readonly tailSafe: boolean;
       /**
@@ -370,14 +413,58 @@ function replayedLineStandsAbove(above: SourceLine): boolean {
   return above.continuationTag === "erased" || isDelimiterLine(above.text);
 }
 
+// The index of an item-confined reader's FIRST block start: the
+// marker or term line rides at index 0 and the text read always
+// consumes it, so the block loop can stand no higher than 1 and
+// reaches 1 at most once.
+const FIRST_BLOCK_START = 1;
+
+/**
+ * Whether a `+` the item's own scan KEPT for a nested list's scan
+ * stands below this line - the one thing a marker line at the
+ * buffer's head does that the break spelling cannot do in its place.
+ *
+ * `read_lines_for_list_item` raises `within_nested_list` on a marker
+ * line (parser.rb l.1503-08, l.1530-36, l.1562-68) and from then on
+ * leaves every `+` the item reads UNERASED (l.1412-14 against l.1439),
+ * where it renders as the `+` character of the text beside it rather
+ * than as a continuation. A `marker`-tagged line is the record of
+ * that ({@link SourceLine.continuationTag}). The printer writes a
+ * break `'''`, which raises the flag for nothing, so the same `+`
+ * comes back ERASED and a rendered character is gone: `t:: d` /
+ * `- - -` / `+` / `last` renders `<hr>` over `+ last` in both
+ * programs and its output would render `last` alone.
+ *
+ * ASKED OF THE WHOLE BUFFER BELOW, not of the next line, because the
+ * flag only ever goes up: every `+` the item reads after the marker
+ * line is kept, however many lines lower it stands.
+ *
+ * ASKED ONLY AT THE BUFFER'S HEAD, which is what makes the whole
+ * buffer the right range: the line at that index is the item's FIRST,
+ * so it is the marker line that raised the flag for every tag below
+ * it, and there is no earlier one to share the credit.
+ * @param lines - the lines this reader walks
+ * @param at - the index of the marker line being classified
+ * @returns true where a kept `+` depends on this line's marker
+ *   reading
+ */
+function keptContinuationStandsBelow(
+  lines: readonly SourceLine[],
+  at: number,
+): boolean {
+  return lines.some(
+    (line, index) => index > at && line.continuationTag === "marker",
+  );
+}
+
 /**
  * Whether a marker line keeps its marker reading at this block start
  * rather than being read as a layout break -
  * {@link ReaderContext.markerLineWins}, which states what that costs
  * and which of the two readings Asciidoctor gives.
  *
- * INSIDE AN ITEM, EXCEPT AT THE TWO POSITIONS A BREAK CAN BE SPELLED
- * AT. Asciidoctor reads the break at every in-item position past the
+ * INSIDE AN ITEM, EXCEPT AT THE POSITIONS A BREAK CAN BE SPELLED AT.
+ * Asciidoctor reads the break at every in-item position past the
  * item's first `next_block` call; this reader takes only the ones
  * where the line the printer writes directly above the break is one
  * it replays byte for byte ({@link replayedLineStandsAbove}), because
@@ -385,6 +472,29 @@ function replayedLineStandsAbove(above: SourceLine): boolean {
  * stands above it, and which text that is the reader cannot know -
  * the printer both JOINS a description onto its term line and WRAPS
  * the result at a width that belongs to the printer.
+ *
+ * THE ITEM'S FIRST BLOCK START IS THE THIRD, and it is the one
+ * position where the ORDER of Ruby's own ladder decides the line
+ * rather than a printed line above it. `text_only` is what holds the
+ * layout-break arm (parser.rb l.591-596) off in front of the list
+ * arms (l.686-704), and a description item whose term line carries an
+ * inline description never gets it
+ * ({@link Confinement} `firstBlock`), so `t:: d` / `- - -` is an
+ * `<hr>` to both programs. The printed line above it is the TERM LINE
+ * and it is not text the printer may wrap: a first block that is a
+ * break makes the item's description replay its own source lines
+ * (`descriptionPrinting`'s follower condition, lines/description-list.ts),
+ * so the `'''` the printer writes stands on the buffer's own first
+ * line again at every width.
+ *
+ * THE INDEX IS THE TEST because the text read consumes index 0 and
+ * indices only rise: a block start at index 1 is the first one this
+ * reader takes, and no later block start can reach that index.
+ *
+ * ONE THING THE BREAK SPELLING CANNOT CARRY holds the position back
+ * anyway ({@link keptContinuationStandsBelow}): a `+` the item's scan
+ * kept because this line was a marker line renders as a character of
+ * its neighbour's text, and `'''` keeps no such `+`.
  *
  * Read off the confinement and the line above rather than folded
  * forward, for {@link blockStartContextIn}'s reason: both are facts
@@ -417,6 +527,13 @@ function markerLineWinsAt(
   at: number,
 ): boolean {
   if (confinement?.kind !== "item") {
+    return false;
+  }
+  if (
+    at === FIRST_BLOCK_START &&
+    confinement.firstBlock === "everyArm" &&
+    !keptContinuationStandsBelow(lines, at)
+  ) {
     return false;
   }
   return !replayedLineStandsAbove(lines[at - 1]);

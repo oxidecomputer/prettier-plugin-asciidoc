@@ -1101,13 +1101,6 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "OpenList",
-    "importer": "src/parse/lines/reader.ts",
-    "kind": "vocabulary",
-    "reason": "the one type for 'which list is open around this block', carried from the confinement that builds it to the sibling rules that read it, so no reader has to guess a marker style apart from a term delimiter"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "OpenList",
     "importer": "src/parse/lines/scope.ts",
     "kind": "vocabulary",
     "reason": "the one type for 'which list is open around this block', carried from the confinement that builds it to the sibling rules that read it, so no reader has to guess a marker style apart from a term delimiter"
@@ -1234,16 +1227,16 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "THEMATIC_BREAK",
-    "importer": "src/print/list-hazard.ts",
+    "importer": "src/print/whitespace-fold.ts",
     "kind": "vocabulary",
-    "reason": "registry pattern: the printer asks the same row the reader does whether the marker line it is about to write spells a rule, so the two cannot disagree about what one is"
+    "reason": "the one spelling of what a thematic break line looks like, asked of the LINE the fold would write so the printer cannot come to disagree with the reader about which marks, how many, and which gaps make a rule"
   },
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "THEMATIC_BREAK",
-    "importer": "src/print/whitespace-fold.ts",
+    "importer": "src/rule-marker-line.ts",
     "kind": "vocabulary",
-    "reason": "the one spelling of what a thematic break line looks like, asked of the LINE the fold would write so the printer cannot come to disagree with the reader about which marks, how many, and which gaps make a rule"
+    "reason": "registry pattern: the one row that says what a rule is, asked of the marker line the printer will write, so the reader and the printer cannot disagree about which three marks make one"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -1430,13 +1423,6 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "rstrip",
-    "importer": "src/print/list-hazard.ts",
-    "kind": "vocabulary",
-    "reason": "the oracle's own per-line rstrip (`prepare_source_string`); the item-text refusal builds a marker line out of a recorded text node, which keeps the trailing whitespace the printer will not write, so it has to end the line where the reader ends one or a rule with a trailing space escapes the refusal"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "rstrip",
     "importer": "src/print/list.ts",
     "kind": "vocabulary",
     "reason": "the oracle's own per-line rstrip (`prepare_source_string`); the item-boundary rule reads the printer's output lines and must hand them to the registry in the same dialect the reader hands it source lines, or a CRLF terminator makes every shape test fail open"
@@ -1447,6 +1433,13 @@
     "importer": "src/print/table-layout.ts",
     "kind": "vocabulary",
     "reason": "the one spelling of the per-line trailing-whitespace strip the reader applies before a table is parsed, so the multi-line-cell predicate reads a cell's lines exactly as the parse handed them over"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rstrip",
+    "importer": "src/rule-marker-line.ts",
+    "kind": "vocabulary",
+    "reason": "the oracle's own per-line rstrip (`prepare_source_string`); the marker line is built out of a recorded text node, which keeps the trailing whitespace the printer will not write, so it has to end the line where the reader ends one or a rule with a trailing space escapes the answer"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -1811,6 +1804,20 @@
     "importer": "src/parse/line-shapes.ts",
     "kind": "vocabulary",
     "reason": "which kind of paragraph is open, the key the interrupting tables are indexed by and the one fact a prose node records about its own lines"
+  },
+  {
+    "file": "src/rule-marker-line.ts",
+    "symbol": "opensOnARuleMarkerLine",
+    "importer": "src/parse/lines/description-list-node.ts",
+    "kind": "vocabulary",
+    "reason": "the same answer, asked before a description item's join takes its rest lines away and leaves that line standing directly under the term line"
+  },
+  {
+    "file": "src/rule-marker-line.ts",
+    "symbol": "opensOnARuleMarkerLine",
+    "importer": "src/print/list-hazard.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to 'this item's first block opens on a line both programs read as a rule at one position and as a nested list at the other', asked before the packer moves that line between the two"
   },
   {
     "file": "src/whitespace-fact.ts",

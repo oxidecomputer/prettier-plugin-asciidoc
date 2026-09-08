@@ -825,10 +825,12 @@ type BlockBoundaryReach = "none" | "exceptLayoutBreaks" | "all";
  * costs the author's bytes may fire
  * ({@link ReaderContext.substitutedContentAbove}, issues #210, #213
  * and #232). A MARKER LINE inside a list item keeps the reading the
- * item's own scan gave it, except at the two positions a break can be
- * spelled at; that is Asciidoctor's own reading where `text_only`
- * covers it and this reader's knowing divergence at the rest
- * ({@link ReaderContext.markerLineWins}, #182 and #242). The second
+ * item's own scan gave it, except at three positions: the two a break
+ * can be spelled at, and a description item's first block start,
+ * where Ruby's own ladder puts the break arm first. That is
+ * Asciidoctor's own reading where `text_only` covers it and this
+ * reader's knowing divergence at the rest
+ * ({@link ReaderContext.markerLineWins}, #182, #242 and #313). The second
  * reason is the only one that reads the line, because it is the only
  * one about a collision between two rows, and it is why the answer is
  * three-valued rather than a yes or a no.

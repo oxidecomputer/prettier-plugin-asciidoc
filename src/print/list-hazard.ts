@@ -115,11 +115,8 @@ import {
   isBlockMetadata,
   isLineComment,
 } from "../block-metadata.js";
-import {
-  LINE_COMMENT_HEAD,
-  THEMATIC_BREAK,
-  rstrip,
-} from "../parse/line-shapes.js";
+import { LINE_COMMENT_HEAD } from "../parse/line-shapes.js";
+import { opensOnARuleMarkerLine } from "../rule-marker-line.js";
 import { hardBreakOwnsItsLine } from "./text-edges.js";
 import { type Atom, type BreakBefore, isFused } from "./reflow.js";
 import { checklistHead } from "./whitespace-fold.js";
@@ -367,87 +364,6 @@ function separatedFirstBlock(item: ListItemNode): boolean {
   return gap !== undefined && gap.length > 0;
 }
 
-// The whole of a rule line's text: the two marks the item's own
-// marker leaves behind, which the reader records as ONE text node.
-// Any second node is a further word, and the line is an ordinary item
-// line rather than a rule.
-const ONE_TEXT_NODE = 1;
-
-/**
- * Whether a nested item's whole MARKER LINE spells a thematic break -
- * the `- - -` and `* * *` an item's own scan reads as a one-item
- * nested list, and nothing else.
- *
- * Asked of the NODE and answered from the bytes the printer will
- * write: the marker line is the item's indent, marker and gap, all
- * replayed ({@link ListItemNode.markerSpelling} and `markerGap`,
- * src/ast.ts), and then its text. The text has to be ONE text node,
- * because a rule line carries two marks and nothing else - any further
- * node is a second word and the line is an ordinary item. The value
- * goes in as it stands rather than word-split, and that is the bytes
- * the printer writes too: a run inside a line that spells a break
- * keeps its own spacing ({@link runsTheLineReads}), so the fold
- * cannot turn `- -` into `- -` under this answer.
- *
- * RSTRIPPED, because that is the one way the source spelling and the
- * printed one differ here: the reader's text node keeps the trailing
- * whitespace the author wrote and the printer writes none, so a
- * `- - - ` would answer no to a pattern with no trailing tolerance
- * and then be written as the `- - -` both programs read as a rule.
- * The same strip is the READER's own dialect ({@link rstrip},
- * src/parse/line-shapes.ts), so the two cannot disagree about where a
- * line ends.
- * @param item - the nested list's first item
- * @returns true where the whole line reads as a rule
- */
-function markerLineSpellsARule(item: ListItemNode): boolean {
-  const [only] = item.text;
-  // The length test comes first and is what makes the read of `only`
-  // total: an item with no text at all has none to read.
-  if (item.text.length !== ONE_TEXT_NODE || only.type !== "text") {
-    return false;
-  }
-  const line = `${item.markerIndent}${item.markerSpelling}${item.markerGap}${only.value}`;
-  return THEMATIC_BREAK.test(rstrip(line));
-}
-
-/**
- * Whether the item's FIRST block start is a spaced marker line that
- * both programs read as a rule at one position and as a nested list
- * at the other - the shape whose text may not be repacked at all.
- *
- * Asciidoctor reads the item's first `next_block` call with
- * `text_only` set (`parse_list_item`, parser.rb l.1367-74), which
- * skips the layout-break arm, and every later call without it. So a
- * `- - -` standing under the item's SECOND text line is an `<hr>` and
- * the same line standing directly under the marker line is a nested
- * `ulist` holding the item `- -`. The packer moves the line between
- * those two positions in BOTH directions: a join lifts the item's
- * text onto the marker line and the rule becomes the first call's,
- * and a width wrap pushes a second line under the marker line and the
- * rule becomes a later call's. Neither is a reading this printer can
- * fix by reading differently - the reader gives one tree at both
- * positions - so the printer keeps the item's own lines instead.
- *
- * ADJACENCY IS THE WHOLE PRECONDITION besides the line's spelling: a
- * gap carrying a blank or a `+` already puts a line of its own
- * between the text and the rule, and that line is replayed, so
- * nothing the packer does to the text can reach the rule's position.
- * @param item - the finished item node
- * @returns true where the item's text must keep its own lines
- */
-function opensOnARuleMarkerLine(item: ListItemNode): boolean {
-  const first = item.blocks.at(0);
-  if (
-    first === undefined ||
-    first.gap.length > 0 ||
-    first.block.type !== "list"
-  ) {
-    return false;
-  }
-  return markerLineSpellsARule(first.block.children[0]);
-}
-
 /**
  * What the printer must do about a list item's TEXT.
  *
@@ -499,7 +415,7 @@ export type TextGuard =
  * @returns how the printer must guard the text
  */
 export function hazard(item: ListItemNode): TextGuard {
-  if (opensOnARuleMarkerLine(item)) {
+  if (opensOnARuleMarkerLine(item.blocks)) {
     return { kind: "noWidthBreaks", kept: keptRuleBreak(item) };
   }
   return { kind: "packed", kept: packedBreak(item) };

@@ -174,16 +174,42 @@ describe("a spaced marker line inside an open list", () => {
     ]);
   });
 
-  // A DESCRIPTION item is no different: `text_only` is dead there
-  // past the term line (`has_text = true if (item_text = match[3])`,
-  // parser.rb l.1304, and no adjacency clause, l.1369), so
-  // Asciidoctor reads the break, and this reader still keeps the
-  // marker reading. The line the printed `'''` would land under is
-  // not a fact the reader has - the printer joins the description
-  // onto the term line and then wraps it - so the rule holds wherever
-  // the line above the break is text.
-  test("a term with its own text keeps the marker reading", () => {
+  // A DESCRIPTION item whose term line carries its own text is the
+  // third position, and there the ORDER of Ruby's ladder decides it
+  // rather than the line above: `has_text = true if (item_text =
+  // match[3])` (parser.rb l.1304) survives l.1369's clearing
+  // (`unless dlist`), so the item's first `next_block` runs with no
+  // `text_only` and the layout-break arm (l.591-596) stands in front
+  // of the list arms (l.686-704). Red before the reader change: this
+  // read a nested `list` whose item text was `- -`, and the
+  // formatter's output respelled the line and turned the `<hr>` both
+  // programs render into that list (issue #313).
+  test("a term with its own text reads the break", () => {
     const [node] = parse("t:: d\n- - -\n").children;
+    narrow(node, "descriptionList");
+    expect(node.children[0].blocks[0].block.type).toBe("thematicBreak");
+  });
+
+  // A TEXTLESS term is not: `has_text` is nil there, so the first
+  // call carries `text_only: true` and the marker arm gets the line -
+  // Asciidoctor's own reading, and the row stands so the arm above is
+  // not read as "any description item".
+  test("a textless term keeps the marker reading", () => {
+    const [node] = parse("t::\n- - -\n").children;
+    narrow(node, "descriptionList");
+    const nested = node.children[0].blocks[0].block;
+    narrow(nested, "list");
+    expect(nested.children[0].text[0]).toMatchObject({ value: "- -" });
+  });
+
+  // PAST the item's first block start the marker reading stands in a
+  // description item as everywhere else: the line the printed `'''`
+  // would land under is not a fact the reader has, because the
+  // printer joins the description onto the term line and then wraps
+  // it. Here a rest line stands above the rule, so the first call
+  // read that line and the rule is a later call's.
+  test("a rest line above the rule keeps the marker reading", () => {
+    const [node] = parse("t:: d\nmore\n- - -\n").children;
     narrow(node, "descriptionList");
     const nested = node.children[0].blocks[0].block;
     narrow(nested, "list");
@@ -193,9 +219,27 @@ describe("a spaced marker line inside an open list", () => {
   // The same where the printer JOINS the description onto the term
   // line, which is the shape that made a source-side answer unsound:
   // a reading that turned on the term line carrying text read one way
-  // on the first pass and the other on the second.
-  test("a description the printer joins keeps the marker reading", () => {
+  // on the first pass and the other on the second. The join is
+  // refused instead (`opensOnARuleMarkerLine`,
+  // src/rule-marker-line.ts), so the rest line stays where it is and
+  // both passes read the marker.
+  test("a description the printer would join keeps the marker reading", () => {
     const [node] = parse("t::\nd\n- - -\n").children;
+    narrow(node, "descriptionList");
+    const nested = node.children[0].blocks[0].block;
+    narrow(nested, "list");
+    expect(nested.children[0].text[0]).toMatchObject({ value: "- -" });
+  });
+
+  // A `+` THE ITEM'S SCAN KEPT holds the break back at the first
+  // block start too, and it is the one thing a printed `'''` cannot
+  // carry: `within_nested_list` (parser.rb l.1415) leaves such a `+`
+  // unerased, where it renders as a character of the text beside it,
+  // and a rule respelled `'''` raises the flag for nothing. Both
+  // programs render this input as an `<hr>` over `+ last`; red before
+  // the guard, the output rendered `last` alone.
+  test("a kept continuation below it keeps the marker reading", () => {
+    const [node] = parse("t:: d\n- - -\n+\nlast\n").children;
     narrow(node, "descriptionList");
     const nested = node.children[0].blocks[0].block;
     narrow(nested, "list");

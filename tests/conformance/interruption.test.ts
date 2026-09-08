@@ -449,17 +449,17 @@ describe("raw (non-text, non-interrupting) paragraph lines", () => {
 // issue is fixed the entry must be deleted, and the test below fails
 // loudly if a listed row starts passing.
 //
-// THREE ROWS, one position: a spaced `- - -` or `* * *` standing
-// directly under an item's own TEXT, where Asciidoctor reads a break
-// past the item's first `next_block` call and this reader keeps the
-// marker reading. What stops the reader taking it is that the break
-// it would have to PRINT does not read back as one there: the
-// canonical `'''` is absorbed by the text above it
-// (`StartOfBlockOrListProc`, parser.rb l.40, matches no break), and
-// which text that is the reader cannot know, because the printer
-// joins a description onto its term line and then wraps the result at
-// its own print width. Closing them takes a break spelling that
-// survives both the join and the wrap, which is a printer question.
+// ONE ROW, one position: a spaced `- - -` standing directly under a
+// MARKER item's own TEXT, where Asciidoctor reads a break past the
+// item's first `next_block` call and this reader keeps the marker
+// reading. What stops the reader taking it is that the break it would
+// have to PRINT does not read back as one there: the canonical `'''`
+// is absorbed by the text above it (`StartOfBlockOrListProc`,
+// parser.rb l.40, matches no break), and which text that is the
+// reader cannot know, because the printer joins an item's text onto
+// its marker line and then wraps the result at its own print width.
+// Closing it takes a break spelling that survives both the join and
+// the wrap, which is a printer question.
 //
 // Two of #242's in-item positions are closed and are no rows here: an
 // erased `+` and a delimited block's terminator, the lines the
@@ -469,9 +469,18 @@ describe("raw (non-text, non-interrupting) paragraph lines", () => {
 // comment above a rule, which is replayed too and is an unopened
 // candidate rather than a shape anything rules out.
 //
-// What each row measures is the `<hr>`, and the paragraph with it:
-// these probes put a line under the rule, so the marker reading takes
-// that line as its item text and the reflow joins the two.
+// The two `dlistItem` rows that stood beside it are CLOSED (issue
+// #313), and by the ORDER of Ruby's ladder rather than by a spelling:
+// a description item whose term line carries its own text runs its
+// first `next_block` with no `text_only` at all, because `has_text`
+// survives l.1369's `unless dlist`. The rule directly under such a
+// term line is the break in both programs and in this reader, and the
+// `'''` the printer writes stands on the buffer's own first line,
+// where no text absorbs it.
+//
+// What the row measures is the `<hr>`, and the paragraph with it: the
+// probe puts a line under the rule, so the marker reading takes that
+// line as its item text and the reflow joins the two.
 //
 // No `dlistItem` row is here for the older shape a `term::` line's
 // own lines used to reach: a description is an ITEM, so its recorded
@@ -480,14 +489,6 @@ describe("raw (non-text, non-interrupting) paragraph lines", () => {
 const KNOWN_GAPS = new Map<string, string>([
   [
     "listItem/spaced markdown thematic break (hyphens)",
-    "#242 (the canonical break is absorbed by the item text above it, and the printer has no spelling that survives the join and the wrap)",
-  ],
-  [
-    "dlistItem/spaced markdown thematic break (hyphens)",
-    "#242 (the canonical break is absorbed by the item text above it, and the printer has no spelling that survives the join and the wrap)",
-  ],
-  [
-    "dlistItem/spaced markdown thematic break (asterisks)",
     "#242 (the canonical break is absorbed by the item text above it, and the printer has no spelling that survives the join and the wrap)",
   ],
 ]);

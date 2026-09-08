@@ -46,14 +46,20 @@ import {
   markerList,
   type ListItemShape,
 } from "./list-reader.js";
-import type { ReaderScope } from "./scope.js";
+import type { FirstBlockLadder, ReaderScope } from "./scope.js";
 import type { SourceLine } from "./split.js";
 import type { TextOpen } from "./paragraph-reader.js";
 
-/** The two facts a confined reader is bounded by, per item. */
-interface ItemConfinement {
+/** The three facts a confined reader is bounded by, per item. */
+export interface ItemConfinement {
   /** The one-list ancestry the confined reader sees. */
   readonly list: OpenList;
+  /**
+   * Which arms `next_block` may take at the item's first block start
+   * ({@link FirstBlockLadder}) - `text_only: has_text ? nil : true`,
+   * parser.rb l.1367-74.
+   */
+  readonly firstBlock: FirstBlockLadder;
   /** The item's own tail safety (ItemExtent.tailSafe). */
   readonly tailSafe: boolean;
 }
@@ -253,6 +259,14 @@ function interiorOfItem(
       buffer,
       {
         list: { kind: "marker", style: marker.style },
+        // `has_text = nil unless dlist` (parser.rb l.1369-70) clears
+        // the flag this item set at l.1304 whenever its content is
+        // adjacent, and adjacent is the only case with a block start
+        // at the buffer's head: a blank or an erased `+` in front of
+        // the first block IS the line at that index. So the first
+        // block start a marker item reaches is always the one Ruby
+        // reads with `text_only` set.
+        firstBlock: "textOnly",
         tailSafe: shape.tailSafe,
       },
       {
@@ -528,7 +542,19 @@ function interiorOfDescription(
   const interior = host.interiorOf(
     shape.markerLine,
     buffer,
-    { list: { kind: "description", delimiter }, tailSafe: shape.tailSafe },
+    {
+      list: { kind: "description", delimiter },
+      // The SAME fact the context below reads, in the other place it
+      // decides something: `has_text` survives l.1369's clearing for
+      // a dlist, so a term line carrying its own description runs the
+      // item's first `next_block` with no `text_only` and the
+      // layout-break arm (l.591-596) stands in front of the list arms
+      // (l.686-704) there. Read once off `descriptionStart` and
+      // handed to both, so the two can never disagree about which
+      // ladder the item's head is read with.
+      firstBlock: descriptionStart === undefined ? "textOnly" : "everyArm",
+      tailSafe: shape.tailSafe,
+    },
     {
       // Ruby's `text_only: has_text ? nil : true` (parser.rb l.1367-74),
       // as the context it decides: a term line carrying no text of

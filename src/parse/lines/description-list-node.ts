@@ -22,10 +22,12 @@ import type {
   BlockNode,
   DescriptionPrinting,
   GapLine,
+  ItemBlock,
   TermGapLine,
 } from "../../ast.js";
 import type { HeadDrainFact } from "../../head-drain-record.js";
 import type { BlockReading } from "../../reader-context.js";
+import { opensOnARuleMarkerLine } from "../../rule-marker-line.js";
 import { buildDescriptionTerm } from "../build/description-list.js";
 import type { DescriptionPair } from "../build/description-list.js";
 import { LINE_COMMENT_HEAD, rstrip } from "../line-shapes.js";
@@ -213,12 +215,22 @@ function gapBetween(
  * to ask about is the one the OUTPUT will carry. Every other block
  * kind is replayed from its own source lines, so the two are the same
  * bytes; a layout break is not, because the printer normalizes every
- * run to `'''` or `<<<`. Today both spellings answer the condition the
- * same way - no break shape ends a description's paragraph past its
- * first line - so this moves no output; it is the fact's provenance
- * that is wrong without it, and a source spelling that answered
- * differently would send the whole run through a join the printed
- * bytes do not support.
+ * run to `'''` or `<<<`. Both spellings answer the condition the same
+ * way - no break shape ends a description's paragraph past its first
+ * line - so this moves no output; it is the fact's provenance that is
+ * wrong without it, and a source spelling that answered differently
+ * would send the whole run through a join the printed bytes do not
+ * support.
+ *
+ * A NESTED LIST's opening line is the one block kind whose source
+ * line is not the printed one either, and this hands back the source
+ * line for it on purpose: the printer packs the nested item's own
+ * text onto its marker line, so the output's first line is a fact
+ * about a width. The one condition that would read the difference
+ * asks the item's BLOCKS instead ({@link opensOnARuleMarkerLine},
+ * src/rule-marker-line.ts), and the conditions that read this line
+ * ask only whether it ends a paragraph, which a marker line does
+ * whatever words follow the marker.
  * @param lines - the lines the list is being read from
  * @param blocks - the item's blocks, in source order
  * @param gaps - the gap recorded in front of each of them, parallel
@@ -253,8 +265,8 @@ function followerLine(
 /**
  * What the printer may do with ONE sibling's recorded lines: the five
  * conditions asked of the RUN ({@link descriptionPrinting}), and the
- * two questions a run cannot carry, both of them about the term line
- * rather than about the description.
+ * three questions a run cannot carry - two about the term line rather
+ * than about the description, and one about the item's own blocks.
  *
  * THE GAP is the join's own ground: it stands BETWEEN the term line
  * and the description, so a join deletes every line of it. An EMPTY
@@ -290,6 +302,20 @@ function followerLine(
  * sibling carries; replaying costs bytes where joining costs a
  * render, so the refusal takes the direction it can defend.
  *
+ * A FIRST BLOCK THAT OPENS ON A SPACED RULE is the third, and it is
+ * about the position the join MOVES that line to rather than about
+ * the line's own bytes. The join takes the rest lines away, so the
+ * rule ends up directly under the term line, which is the item's
+ * first `next_block` call - and the ladder there is not the one that
+ * read it where it stood ({@link opensOnARuleMarkerLine},
+ * src/rule-marker-line.ts, carries the two Ruby arms). `t:: d` /
+ * `more` / `- - -` joined to `t:: d more` / `- - -` re-reads as a
+ * different tree, which no render moves and which leaves the output
+ * short of its own fixed point. It is asked of the item's BLOCKS
+ * rather than of the follower LINE because the packer writes the
+ * nested item's own text onto that line too: `- - -` over `last` is
+ * one item, and its printed marker line is no rule at any width.
+ *
  * ASKED HERE, at the one site that asks the question at all, so the
  * answer the node carries is still a single recorded answer and the
  * printer derives nothing (src/ast.ts, `DescriptionPrinting`).
@@ -299,19 +325,28 @@ function followerLine(
  *   bytes and for the line's own head
  * @param gap - the source between the term line and the description
  * @param run - the rest of what the conditions read: the sibling's
- *   recorded rest lines and the line its first block opens on
+ *   recorded rest lines, the line its first block opens on, and its
+ *   blocks behind their recorded gaps
  * @param run.restLines - the item's recorded rest lines
  * @param run.follower - the first block's opening line, where nothing
  *   separates it from the description
+ * @param run.blocks - the item's blocks, for the rule question above
  * @returns the verdict the sibling's node carries
  */
 function siblingPrinting(
   marker: DlistTermKind,
   markerLine: SourceLine,
   gap: readonly TermGapLine[],
-  run: { restLines: readonly string[]; follower: string | undefined },
+  run: {
+    restLines: readonly string[];
+    follower: string | undefined;
+    blocks: readonly ItemBlock[];
+  },
 ): DescriptionPrinting {
   if (gap.length > 0 || markerLine.text.startsWith(LINE_COMMENT_HEAD)) {
+    return "replay";
+  }
+  if (opensOnARuleMarkerLine(run.blocks)) {
     return "replay";
   }
   return descriptionPrinting({
@@ -320,7 +355,8 @@ function siblingPrinting(
       marker.descriptionStart === undefined
         ? ""
         : markerLine.text.slice(marker.descriptionStart),
-    ...run,
+    restLines: run.restLines,
+    follower: run.follower,
   });
 }
 
@@ -410,9 +446,13 @@ export function descriptionItemNode(
     ? (bounds.nextTermLine ?? bounds.drainedEnd)
     : Math.max(bounds.drainedEnd, recorded.at(0)?.line ?? markerLine.line);
   const gap = gapBetween(bounds.lines, bounds.gaps, markerLine.line, gapEnd);
+  // The item's blocks behind their gaps, built once: the printing
+  // verdict reads the first of them and the body carries all of them.
+  const pieces = blocks.map((block, index) => ({ gap: gaps[index], block }));
   const printing = siblingPrinting(marker, markerLine, gap, {
     restLines: textLines,
     follower: followerLine(bounds.lines, blocks, gaps),
+    blocks: pieces,
   });
   return {
     term: buildDescriptionTerm(
@@ -432,7 +472,7 @@ export function descriptionItemNode(
       text,
       context: bounds.whitespace,
       reading: readingOfThePrintedItem(interior.reading, printing),
-      blocks: blocks.map((block, index) => ({ gap: gaps[index], block })),
+      blocks: pieces,
       // The three tail facts belong to a body, and a bodyless sibling
       // has none: its `+` bytes are in the gap above where the fold
       // can still reach them (buildDescriptionList's `withTerm`

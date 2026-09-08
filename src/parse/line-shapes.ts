@@ -204,16 +204,31 @@ export interface ReaderContext {
    * touches them.
    *
    * TRUE AT A BLOCK START INSIDE A LIST ITEM'S CONFINED READ, EXCEPT
-   * DIRECTLY UNDER THE TWO LINES THE PRINTER REPLAYS, and false
-   * everywhere else; `markerLineWinsAt` (lines/scope.ts) is the whole
-   * of it and names the two.
+   * DIRECTLY UNDER THE TWO LINES THE PRINTER REPLAYS AND EXCEPT AT
+   * THE FIRST BLOCK START OF A DESCRIPTION ITEM WHOSE TERM LINE
+   * CARRIES ITS OWN TEXT, and false everywhere else;
+   * `markerLineWinsAt` (lines/scope.ts) is the whole of it and names
+   * all three.
    *
-   * ASCIIDOCTOR AGREES OVER THE ITEM'S FIRST `next_block` CALL, which
-   * it makes with `text_only` set (`parse_list_item`, parser.rb
+   * ASCIIDOCTOR AGREES OVER A MARKER ITEM'S FIRST `next_block` CALL,
+   * which it makes with `text_only` set (`parse_list_item`, parser.rb
    * l.1367-74; the option skips the whole layout-break arm at l.591).
    * That is why the oracle gives `* a` / `- - -` / `* b` a NESTED `ul`
    * holding the item `- -` and `* a` / `* * *` / `* b` three sibling
    * items.
+   *
+   * A DESCRIPTION ITEM'S FIRST CALL IS THE ONE EXCEPTION Ruby makes
+   * to that, and it is why the third position exists: `has_text` is
+   * set from the TERM LINE's own text (l.1304) and survives l.1369's
+   * clearing, which exempts a dlist, so `t:: d` / `- - -` runs its
+   * first call with no `text_only` at all and the break arm claims
+   * the line in both programs. The `'''` the printer writes there
+   * stands on the buffer's own first line, where nothing absorbs it:
+   * a break follower makes the description REPLAY its own source
+   * lines (`descriptionPrinting`, lines/description-list.ts), so no
+   * width can put a text line above the rule. A TEXTLESS term is not
+   * the exception - `has_text` is nil, the call carries `text_only`,
+   * and `t::` / `- - -` is the nested list both programs read.
    *
    * PAST THAT CALL ASCIIDOCTOR READS A BREAK EVERYWHERE, and this
    * reader takes only the positions it can SPELL one at. The printer
@@ -255,7 +270,8 @@ export interface ReaderContext {
    * `- - -` / `last` as an `<hr>` and a paragraph inside the item;
    * this formatter writes `* a` / blank / `- - - last`, which renders
    * a fabricated nested item and loses both. The same holds under
-   * `t:: d` and under `. a`. Pinned in
+   * `. a`, and under `t:: d` at every position but the first block
+   * start above. Pinned in
    * tests/format/spaced-thematic-break.test.ts.
    *
    * REUSE (#195): this is NOT Ruby's `text_only`, and a second
@@ -275,8 +291,8 @@ export interface ReaderContext {
    * `text_only` though `x` is adjacent. Recording it needs the
    * reader's own block count and blank run, so it is not derivable
    * from the lines alone; that is what #195 needs, and splitting it
-   * out of this field is safe only at the positions where a break can
-   * be spelled, which is the pair above and no more.
+   * out of this field is safe only at the positions this field
+   * already names, which are the three above and no more.
    */
   readonly markerLineWins: boolean;
   /**
@@ -1205,15 +1221,18 @@ export const BLOCK_MACRO =
  * At a block start the layout-break arm runs first, so the oracle
  * renders `- - -` and `* * *` as `<hr>` and this row reads them.
  * Inside an open list neither arm is reached: `parse_list`'s own loop
- * (parser.rb l.1119) never calls `next_block`, and an item's blocks
- * are read with `text_only` set (`parse_list_item`, parser.rb
- * l.1367-74), which is the option `next_block` skips the whole
- * layout-break arm for. There the oracle gives `* a` / `- - -` / `* b`
- * a NESTED `ul` holding the item `- -` and `* a` / `* * *` / `* b`
- * three sibling items. The classifier holds this row off at those
- * positions and says exactly which
- * ({@link ReaderContext.markerLineWins}); nothing about the line
- * itself distinguishes them.
+ * (parser.rb l.1119) never calls `next_block`, and a MARKER item's
+ * first block is read with `text_only` set (`parse_list_item`,
+ * parser.rb l.1367-74), which is the option `next_block` skips the
+ * whole layout-break arm for. There the oracle gives `* a` / `- - -`
+ * / `* b` a NESTED `ul` holding the item `- -` and `* a` / `* * *` /
+ * `* b` three sibling items. A DESCRIPTION item whose term line
+ * carries its own text is the exception: `has_text` survives
+ * l.1369's clearing, so its first call runs without the option and
+ * this row reads `t:: d` / `- - -` as the break both programs render.
+ * The classifier holds this row off at the rest and says exactly
+ * which ({@link ReaderContext.markerLineWins}); nothing about the
+ * line itself distinguishes them.
  *
  * THIS ROW'S MATCH DEPENDS ON INTERIOR SPACING, and the printer's
  * whitespace fold normalizes interior spacing. A line the oracle reads

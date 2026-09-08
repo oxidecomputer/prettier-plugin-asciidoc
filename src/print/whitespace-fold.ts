@@ -207,12 +207,20 @@ function sourceLineSpelledTheRule(runs: readonly string[]): boolean {
  * reproduces the author's line exactly, which is a rule when it was
  * one and prose when it was not.
  *
- * THIS ARM IS BYTE PRESERVATION STANDING IN FOR A READING WE GET
- * WRONG, which is issue #313: both programs read `t:: d` over
- * `-  -  -` as an `<hr>` inside the description and our reader reads
- * a nested one-item list, so the line's own verdict cannot be asked
- * about it. Keeping the bytes keeps the render; the reading is #313's
- * to fix, and this arm leaves with it.
+ * THIS ARM STANDS WHEREVER A RULE LINE IS AN ITEM LINE, which is
+ * every position but one: any MARKER item's, a TEXTLESS description
+ * term's, and every description-item position past the item's FIRST
+ * block start. At all of them the reader keeps the marker reading -
+ * `text_only` holds the layout-break arm off for a marker item's
+ * first call and the printer can spell no break under text for the
+ * rest ({@link ReaderContext.markerLineWins},
+ * src/parse/line-shapes.ts) - so the line's own verdict cannot be
+ * asked about it and keeping the bytes is what keeps the render. The
+ * one position that is NOT this arm's is a description term carrying
+ * its own text, where Ruby's ladder puts the break first and the
+ * reader takes it (issue #313); the arm is untouched by that, and
+ * `* a` / `  - -` / `-` is the witness that reddens without it, a
+ * nested item whose de-indent the fold would otherwise take.
  *
  * WHY NOT weigh the two halves, which is what this asked before the
  * gap was replayed. A PROSPECTIVE argument about the design as it now

@@ -42,7 +42,7 @@ import {
   type ProseText,
 } from "../build/paragraph.js";
 import { buildTable } from "../build/table.js";
-import type { OpenList, ParagraphContext } from "../line-shapes.js";
+import type { ParagraphContext } from "../line-shapes.js";
 import { makeLocationIndex, type LocationIndex } from "../positions.js";
 import { readAttributeEntry } from "./attribute-entry.js";
 import {
@@ -82,6 +82,7 @@ import type { ItemInterior } from "./item-body.js";
 import {
   readDescriptionList,
   readMarkerList,
+  type ItemConfinement,
   type ListHost,
 } from "./list-read.js";
 import {
@@ -536,9 +537,7 @@ class BlockReader {
    * for it there.
    * @param markerLine - the item's marker or term line
    * @param buffer - the item's lines, as its own read left them
-   * @param item - the item's ancestry list and its tail safety
-   * @param item.list - the one-list ancestry a confined reader sees
-   * @param item.tailSafe - the item's own tail safety
+   * @param item - the three facts a confined reader is bounded by
    * @param open - where the item's text starts and under which
    *   interrupting set it is read
    * @param open.context - which interrupting set applies
@@ -549,17 +548,19 @@ class BlockReader {
   private itemInterior(
     markerLine: SourceLine,
     buffer: readonly SourceLine[],
-    item: { list: OpenList; tailSafe: boolean },
+    item: ItemConfinement,
     open: { context: ParagraphContext; text: TextOpen },
   ): ItemInterior {
     // The buffer's last line - the item's own line when the buffer is
     // empty - is where a forced close inside this item falls: its raw
     // end, the vii-b clamp as DATA.
     const last = buffer.at(-1) ?? markerLine;
+    // The item's three facts go in whole: `ItemConfinement`
+    // (list-read.ts) is exactly the part of an `"item"` confinement a
+    // list read decides, and the reader adds the two only it knows.
     const inner = new BlockReader(this.scope, [markerLine, ...buffer], {
       kind: "item",
-      list: item.list,
-      tailSafe: item.tailSafe,
+      ...item,
       directiveDepth: this.directiveDepth,
       closeOffset: last.offset + last.raw.length,
     });

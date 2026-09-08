@@ -6,11 +6,13 @@
  * `UnorderedListRx`, so what decides it is where it stands: at a
  * block start `next_block` reaches its layout-break arm and the line
  * is an `<hr>`; inside a list item the arm is held off and the line
- * is a marker, except at the two positions where the line the printer
- * writes directly above the break is one it replays and no paragraph
- * is left open under it (issue #242). The tight spellings have no
- * such collision and are pinned with the rest of the breaks in
- * breaks.test.ts.
+ * is a marker, except at three positions. Two are the lines the
+ * printer replays and leaves no paragraph open under (issue #242).
+ * The third is a DESCRIPTION item's first block start, where a term
+ * line carrying its own text leaves `text_only` unset and Ruby's own
+ * ladder puts the break arm first (issue #313). The tight spellings
+ * have no such collision and are pinned with the rest of the breaks
+ * in breaks.test.ts.
  */
 import { describe, test, expect } from "vitest";
 import {
@@ -61,13 +63,76 @@ describe("spaced markdown thematic break formatting", () => {
     ["a foreign marker behind held metadata", "* a\n[[q]]\n- - -\n"],
     ["a foreign marker behind a comment", "* a\n//c\n- - -\n"],
     ["a textless term", "t::\n- - -\n"],
-    ["a term with its own text", "t:: d\n- - -\n"],
-    ["a sibling term below it", "t:: d\n- - -\nu:: e\n"],
+    ["a rest line above it", "t:: d\nmore\n- - -\n"],
     ["an indented description", "t::\n  d\n- - -\n"],
     ["a blank line above it", "* a\n\n- - -\n"],
     ["a blank line and a sibling below", "* a\n\n- - -\n* b\n"],
     ["a later block of a marker item", "* a\nimage::t.png[]\n- - -\n"],
   ])("%s inside an open list", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // THE DESCRIPTION ITEM'S OWN FIRST BLOCK START, which is neither
+  // half of the pair above (#313). `has_text` is set from the TERM
+  // LINE's own text (parser.rb l.1304) and survives l.1369's
+  // clearing, which exempts a dlist, so a term carrying a description
+  // runs its first `next_block` with no `text_only` at all: the
+  // layout-break arm (l.591-596) stands ahead of the list arms
+  // (l.686-704) and both programs read the `<hr>`. The printer writes
+  // `'''` on the buffer's own first line, where no text can absorb
+  // it - the description replays rather than wrapping over it,
+  // because a break follower is one no line of description text ends
+  // (`descriptionPrinting`, src/parse/lines/description-list.ts).
+  //
+  // Red before the reader change: every row came back as the author
+  // wrote it, and the row with a line under the rule joined the two
+  // (`t:: d` / `- - - last`), which renders a fabricated nested item
+  // where both programs render a rule and a paragraph.
+  test.each([
+    ["a tight dash rule", "t:: d\n- - -\n", "t:: d\n'''\n"],
+    ["a wide dash rule", "t:: d\n-  -  -\n", "t:: d\n'''\n"],
+    ["a star rule", "t:: d\n* * *\n", "t:: d\n'''\n"],
+    ["an underscore rule", "t:: d\n_ _ _\n", "t:: d\n'''\n"],
+    ["an indented rule", "t:: d\n   - - -\n", "t:: d\n'''\n"],
+    ["a line under the rule", "t:: d\n- - -\nlast\n", "t:: d\n'''\nlast\n"],
+    ["a sibling term below it", "t:: d\n- - -\nu:: e\n", "t:: d\n'''\nu:: e\n"],
+    ["another delimiter", "t;; d\n- - -\n", "t;; d\n'''\n"],
+    ["a deeper delimiter", "t::: d\n- - -\n", "t::: d\n'''\n"],
+  ])("%s under a term with text reads the break", async (_n, input, out) => {
+    await expectFormatted(input, out);
+  });
+
+  // The two lines a rule is NOT read on at that same position, so the
+  // arm above is not read as "any three marks under a term".
+  //
+  // A TAB between the marks is no rule to either pattern: both
+  // `ExtLayoutBreakRx` (rx.rb l.650) and `MarkdownThematicBreakRx`
+  // (l.638) spell the gap `( *)`, while `UnorderedListRx` (l.284)
+  // spells its own `[ \t]+`, so the line is a nested item to both
+  // programs and stays one here (issue #182). A REAL nested item is
+  // the control the whole arm turns on.
+  test.each([
+    ["tab-separated marks", "t:: d\n-\t-\t-\n"],
+    ["a nested item under the term", "t:: d\n- x\n"],
+    ["an unequal gap", "t:: d\n- -  -\n"],
+    ["a marker line carrying a word", "t:: d\n- - - x\n"],
+  ])("%s is no rule", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // A `+` THE ITEM'S SCAN KEPT is the one thing the printed `'''`
+  // cannot carry, so the marker reading stands at that position too.
+  // A marker line raises `within_nested_list` (parser.rb l.1503-08),
+  // and from there every `+` the item reads is left UNERASED
+  // (l.1412-14 against l.1439), where it renders as a character of
+  // the text beside it: both programs render the first row as an
+  // `<hr>` over `+ last`. A rule respelled `'''` raises the flag for
+  // nothing, and the `+` would come back erased. Red before the
+  // guard: each row printed `'''` and lost the `+` from the render.
+  test.each([
+    ["a continuation under the rule", "t:: d\n- - -\n+\nlast\n"],
+    ["a delimited block behind it", "t:: d\n- - -\n+\n----\nx\n----\n"],
+  ])("%s keeps the marker reading", async (_name, input) => {
     await expectFormatted(input, input);
   });
 
@@ -163,21 +228,34 @@ describe("spaced markdown thematic break formatting", () => {
     await expectFormatted("* a\n+\n* * *\nlast\n", "* a\n+\n* * * last\n");
   });
 
-  // The same reading where the printer JOINS the description onto its
-  // term line: the rule keeps its own line and its own bytes, the
-  // description moves up, and the render is the source's because a
-  // marker line ends the description's paragraph wherever it stands.
+  // THE JOIN IS REFUSED where it would move the rule onto the item's
+  // first block start, because the two positions read it differently
+  // and the tree would change under a formatter that changed no
+  // render (`opensOnARuleMarkerLine`, src/rule-marker-line.ts). The
+  // description keeps its own lines and the rule keeps its own
+  // reading, at both passes. Red before the refusal: each row joined
+  // its description onto the term line, and formatting the RESULT
+  // read the rule as a break and wrote `'''`, so the first output was
+  // not its own fixed point.
   test.each([
-    ["a textless term", "t::\nd\n- - -\n", "t:: d\n- - -\n"],
-    ["two rest lines", "t::\nd\ne\n- - -\n", "t:: d e\n- - -\n"],
-    ["another delimiter", "t;;\nd\n- - -\n", "t;; d\n- - -\n"],
-    [
-      "a rest line under a term with text",
-      "t:: d\nmore\n- - -\n",
-      "t:: d more\n- - -\n",
-    ],
-  ])("%s keeps the rule on its own line", async (_name, input, expected) => {
-    await expectFormatted(input, expected);
+    ["a textless term", "t::\nd\n- - -\n"],
+    ["two rest lines", "t::\nd\ne\n- - -\n"],
+    ["another delimiter", "t;;\nd\n- - -\n"],
+    ["a rest line under a term with text", "t:: d\nmore\n- - -\n"],
+  ])("%s keeps the rule on its own line", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // NOT REFUSED where the rule line carries a word: the printer packs
+  // the nested item's own text onto that line too, so the line it
+  // writes is no rule at any width and the join moves nothing. The
+  // row stands so the refusal is not read as "any nested marker line
+  // spelled with three marks".
+  test("a rule line carrying a word joins as always", async () => {
+    await expectFormatted(
+      "t:: d\nmore\n- - - last\n",
+      "t:: d more\n- - - last\n",
+    );
   });
 
   // THE WIDTH ROWS, and they are why the reading is the marker's at
@@ -316,9 +394,9 @@ describe("spaced markdown thematic break formatting", () => {
       "t:: d\n\n- - - last\n",
     ],
     [
-      "a description with a line under the rule",
-      "t:: d\n- - -\nlast\n",
-      "t:: d\n- - - last\n",
+      "a description under a rest line",
+      "t:: d\nmore\n- - -\nlast\n",
+      "t:: d more\n- - - last\n",
     ],
     // THE UNOPENED CANDIDATE, pinned so the remainder is not read as
     // "text or a blank". A `//` line is replayed byte for byte and
@@ -429,16 +507,21 @@ describe("a spaced rule under a list item's own text", () => {
     await expectFormatted(input, input, { printWidth: 80 });
   });
 
-  // THE DESCRIPTION TWIN needs no refusal, and the row stands so the
-  // refusal is not widened to it: a marker line ends a description's
-  // paragraph at ANY position, so the join that moves it is
-  // render-equal in both programs and the description is written onto
-  // its term line as always.
+  // THE DESCRIPTION TWIN takes the refusal in the other half of the
+  // formatter, and the rows stand so the two are not confused. A
+  // marker line ends a description's paragraph at ANY position, so
+  // the render survives the join here where an item's text would lose
+  // it; what does not survive is the READING, because the join leaves
+  // the rule on the item's first block start, where a description
+  // item runs `next_block` with no `text_only`. So the refusal is the
+  // recorded printing verdict's rather than the packer's
+  // (`opensOnARuleMarkerLine`, src/rule-marker-line.ts), and the
+  // description keeps its own lines.
   test.each([
-    ["a textless term", "t::\nd\n- - -\n", "t:: d\n- - -\n"],
-    ["a term with its own text", "t:: d\ne\n- - -\n", "t:: d e\n- - -\n"],
-  ])("%s joins as always", async (_name, input, expected) => {
-    await expectFormatted(input, expected);
+    ["a textless term", "t::\nd\n- - -\n"],
+    ["a term with its own text", "t:: d\ne\n- - -\n"],
+  ])("%s replays instead", async (_name, input) => {
+    await expectFormatted(input, input);
   });
 
   // NOT the shape, because the marker line under the text is an

@@ -776,24 +776,31 @@ describe("the boundaries of the reflow verdict", () => {
     await expectStable(input, undefined, { printWidth: 20 });
   });
 
-  // Rest lines Asciidoctor opens a block on and this registry's
+  // A rest line Asciidoctor opens a block on and this registry's
   // classifier reads as text, so no composition of the interrupting
-  // sets can refuse them. Red before the registry carried the shape
-  // rule: `t:: def` / `- - -` joins and the `<hr>` goes with it
-  // (issue #182, spaced markdown thematic break, whose LINE the
-  // registry reads now but which inside a list item is an
-  // `UnorderedListRx` item line and replays); `t:: def` / `> quote`
-  // joins and the blockquote goes with it (issue #22). The first is
-  // also the row the whole-LINE test answers for alone, since its
-  // hazard spans words. The four-tilde rows that used to stand here
-  // moved to the pair below: `openBlockTilde` (line-shapes.ts) closed
-  // that gap (issue #64), so the shape is READ now and a join test no
-  // longer answers for it.
-  test.each([
-    ["a spaced markdown rule", "t:: def\n- - -\n"],
-    ["a markdown blockquote", "t:: def\n> quote\n"],
-  ])("%s replays", async (_n, input) => {
-    await expectStable(input, undefined, { printWidth: 40 });
+  // sets can refuse it. Red before the registry carried the shape
+  // rule: `t:: def` / `> quote` joins and the blockquote goes with it
+  // (issue #22). It is also the row the whole-LINE test answers for
+  // alone, since its hazard spans words. The four-tilde rows that
+  // used to stand here moved to the pair below: `openBlockTilde`
+  // (line-shapes.ts) closed that gap (issue #64), so the shape is
+  // READ now and a join test no longer answers for it.
+  test("a markdown blockquote replays", async () => {
+    await expectStable("t:: def\n> quote\n", undefined, { printWidth: 40 });
+  });
+
+  // The spaced markdown rule stood beside it and no longer does.
+  // Directly under a term line carrying its own description it is the
+  // item's FIRST `next_block` call, which a description item runs
+  // with no `text_only` at all (parser.rb l.1367-74), so both
+  // programs read the `<hr>` there and this reader does too (issue
+  // #313). What the row still proves is the render: `expectStable`
+  // asserts it against the input's, and the rule keeps a line of its
+  // own either way.
+  test("a spaced markdown rule is the break", async () => {
+    await expectStable("t:: def\n- - -\n", "t:: def\n'''\n", {
+      printWidth: 40,
+    });
   });
 
   // The tilde run's own gap closed (issue #64): a bare `~~~~` no
@@ -821,11 +828,14 @@ describe("the boundaries of the reflow verdict", () => {
   // refused, and because the line is a break rather than an
   // unmodelled head it comes back in the canonical `'''` spelling
   // instead of its own bytes. The two SPACED marker spellings are NOT
-  // here: they are `UnorderedListRx` marker lines as well, and under
-  // a description's own text that is the reading (#182), so they
-  // replay with the row above (tests/format/spaced-thematic-break.test.ts
-  // states why, and names the two in-item positions that do read the
-  // break).
+  // here, and the reason is a POSITION rather than a spelling: they
+  // are `UnorderedListRx` marker lines as well, so under a
+  // description's own text PAST its first block start that is the
+  // reading (#182, #313). Directly under a term line carrying its own
+  // description they read as the break and print `'''` like these
+  // three, which the row above pins
+  // (tests/format/spaced-thematic-break.test.ts states why, and names
+  // the three in-item positions that do read the break).
   test.each([
     ["a bare markdown rule", "t:: def\n---\n"],
     ["the underscore rule", "t:: def\n___\n"],
