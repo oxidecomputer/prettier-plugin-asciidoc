@@ -1907,25 +1907,25 @@
     "grid": {
       "shape": "clusters",
       "counts": {
-        "positions": 3978,
-        "cases": 15912,
+        "positions": 3980,
+        "cases": 15920,
         "free": 1173,
         "freeButInstrumentBound": 27,
-        "lengthBound": 48,
-        "tabBound": 48,
-        "newlineBound": 2805,
+        "lengthBound": 49,
+        "tabBound": 49,
+        "newlineBound": 2807,
         "programsDiffer": 29,
         "referenceOnly": 0
       },
       "scan": {
-        "documents": 14752,
+        "documents": 14756,
         "skippedLines": {
           "attribute-entry": 621,
           "block-attribute": 2834,
           "delimiter": 11457,
           "eligible": 0,
           "inside-delimited": 30206,
-          "marker": 5682
+          "marker": 5686
         },
         "edgeRuns": 1274
       },
@@ -2013,6 +2013,12 @@
             "listing/dlist-desc/heading-inside/l0c6"
           ],
           "sha256": "eaf5216b8b264e6c883927a72ae6e848b1cc8115385a35606c30562310dfb076"
+        },
+        {
+          "key": "hard break|LENGTH+TAB+NEWLINE|agree",
+          "count": 1,
+          "examples": ["drained-run/hard-break/marker-item/l1c3"],
+          "sha256": "ba5e02738a94cc8cc363ee853ec4c21ba9153b7278d255c3686dc13f1467d655"
         },
         {
           "key": "section title marker|FREE|agree",
@@ -2108,15 +2114,15 @@
         },
         {
           "key": "unclassified|NEWLINE|agree",
-          "count": 1077,
+          "count": 1078,
           "examples": [
+            "drained-run/second-word/marker-item/l1c4",
             "pair/admonition-label/admonition-label/adjacent/doc/l0c5",
             "pair/admonition-label/admonition-label/adjacent/item/l2c5",
             "pair/admonition-label/admonition-label/blank/dlist-desc-line/l3c5",
-            "pair/admonition-label/admonition-label/blank/doc/l0c5",
-            "pair/admonition-label/admonition-label/blank/doc/l2c5"
+            "pair/admonition-label/admonition-label/blank/doc/l0c5"
           ],
-          "sha256": "ea132ff6b24cb659257a248767f0d6fe80bd82d73dd81bd959f1c867970b4ffd"
+          "sha256": "ef9eb2a0838f894683eaf7736ab0b66190552848cfbb7fd3e67ff0529c2d4d3a"
         },
         {
           "key": "verbatim block shelter|NEWLINE|agree",
