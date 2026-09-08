@@ -15,11 +15,11 @@ export default defineConfig({
     // `**/*.deep.test.ts` is the OTHER entry: the deep tier, the
     // generated products whose wall time a run on every save should
     // not pay. It is not weakened by living outside the default run:
-    // it is a blocking CI step (`bun run test:deeply-nested-lists`)
-    // and the prelude to every mutation run. What a mutation run gets
-    // to kill mutants with is only what stays HERE, since it never
-    // sees a deep tier, which is why every deep tier keeps a default
-    // tier in this run.
+    // it is a blocking CI step (`bun run test:deep-tiers`) and the
+    // prelude to every mutation run. What a mutation run gets to kill
+    // mutants with is only what stays HERE, since it never sees a deep
+    // tier, which is why every deep tier keeps a default tier in this
+    // run.
     exclude: ["node_modules/**", ".stryker-tmp/**", "**/*.deep.test.ts"],
     passWithNoTests: true,
     testTimeout: TEST_TIMEOUT,

@@ -3,13 +3,12 @@ import { BATCHED_SWEEPS } from "./vitest.batched-sweep.config.js";
 import base from "./vitest.config.js";
 
 /**
- * The vitest entry for the PER-PUSH deep sweeps: the
- * `*.deep.test.ts` files other than the batched ones, run by
- * `bun run test:deeply-nested-lists`. The shape registry's deep tier
- * and the reparse ledger. That script's own
- * header says what each proves; the floor it holds the collected test
- * count to is what makes a file dropped from the glob below an exit 2
- * rather than a green tick.
+ * The vitest entry for the PER-PUSH deep sweeps: the `*.deep.test.ts`
+ * files other than the batched ones, run by `bun run test:deep-tiers`.
+ * The shape registry's deep tier and the reparse ledger. That script's
+ * own header says what each proves; the floor it holds the collected
+ * test count to is what makes a file dropped from the glob below an
+ * exit 2 rather than a green tick.
  *
  * It is the base config with one glob moved from `exclude` to
  * `include`, minus the sweeps `vitest.batched-sweep.config.ts` claims:
@@ -25,7 +24,7 @@ import base from "./vitest.config.js";
  * include names and the run would collect zero tests and pass
  * (`passWithNoTests`). That silent green is exactly the failure the
  * exit-code contract exists to prevent, which is also why
- * `scripts/test-deeply-nested-lists.ts` checks that tests actually ran.
+ * `scripts/test-deep-tiers.ts` checks that tests actually ran.
  */
 export default defineConfig({
   ...base,

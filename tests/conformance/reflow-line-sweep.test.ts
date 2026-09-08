@@ -13,9 +13,9 @@
  * ONE TIER. The population is an order of magnitude short of the
  * registry sweeps' and finishes inside the critical path the
  * list-shape sweep already sets in this suite, so there is no wall
- * time here to move into `bun run test:deeply-nested-lists` and no
- * deep entry to pin a population from. This file holds both jobs: the
- * manifest and the population it was measured over.
+ * time here to move into `bun run test:deep-tiers` and no deep entry
+ * to pin a population from. This file holds both jobs: the manifest
+ * and the population it was measured over.
  *
  * The population pin is what a manifest cannot say. A class dropped
  * from the table takes its failures with it, and the manifest would

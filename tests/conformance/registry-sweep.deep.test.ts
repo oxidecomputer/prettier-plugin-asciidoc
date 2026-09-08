@@ -1,5 +1,5 @@
 /**
- * The registry sweep's DEEP tier, behind `bun run test:deeply-nested-lists`.
+ * The registry sweep's DEEP tier, behind `bun run test:deep-tiers`.
  *
  * Both grids, each crossed with the operator set it declares, run
  * through the crash/idempotency/fidelity properties. It costs minutes

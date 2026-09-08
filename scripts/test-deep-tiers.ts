@@ -5,8 +5,8 @@
  * The DEEP sweeps, as their own entry: every `*.deep.test.ts` file,
  * in the two cadences the files are partitioned into.
  *
- *   bun run test:deeply-nested-lists   the per-push entry
- *   bun run test:batched-sweeps        the batched entry
+ *   bun run test:deep-tiers        the per-push entry
+ *   bun run test:batched-sweeps    the batched entry
  *
  * PER PUSH, two products under `vitest.sweep.config.ts`. The registry
  * sweep's deep tier is the first gate: both shape-registry grids, each
@@ -51,7 +51,7 @@ import path from "node:path";
 import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
 import { isObject, strictJson } from "./metrics/json.js";
 
-const USAGE = `usage: bun run test:deeply-nested-lists
+const USAGE = `usage: bun run test:deep-tiers
        bun run test:batched-sweeps
 
   --batched   the batched entry: the inline sweep's deep tier alone
@@ -168,9 +168,7 @@ function sweep(entry: DeepEntry, reportFile: string): void {
     { stdio: "inherit" },
   );
   if (run.error !== undefined) {
-    cannotRun(
-      `test-deeply-nested-lists: could not start vitest - ${run.error.message}`,
-    );
+    cannotRun(`test-deep-tiers: could not start vitest - ${run.error.message}`);
     return;
   }
   // The measured-nothing floor, read from the REPORTER rather than
@@ -178,7 +176,7 @@ function sweep(entry: DeepEntry, reportFile: string): void {
   const total = testsRun(reportFile);
   if (total === undefined) {
     cannotRun(
-      `test-deeply-nested-lists: no run report at ${reportFile} - nothing was swept`,
+      `test-deep-tiers: no run report at ${reportFile} - nothing was swept`,
     );
     return;
   }
@@ -189,24 +187,24 @@ function sweep(entry: DeepEntry, reportFile: string): void {
     // this floor mostly exists for and the one a "collected 0" line
     // would send a reader looking in the wrong place.
     cannotRun(
-      `test-deeply-nested-lists: the run collected ${String(total)} test(s), fewer than the ${String(entry.minimumTests)} deep gates: a *.deep.test.ts file is missing from ${entry.config}'s globs, or one of its tests is skipped`,
+      `test-deep-tiers: the run collected ${String(total)} test(s), fewer than the ${String(entry.minimumTests)} deep gates: a *.deep.test.ts file is missing from ${entry.config}'s globs, or one of its tests is skipped`,
     );
     return;
   }
   if (run.status === VITEST_TESTS_FAILED) {
     console.error(
-      `test-deeply-nested-lists: a failing set did not match its manifest (${String(total)} test(s) ran)`,
+      `test-deep-tiers: a failing set did not match its manifest (${String(total)} test(s) ran)`,
     );
     process.exitCode = GATE_FAILED;
     return;
   }
   if (run.status !== 0) {
     cannotRun(
-      `test-deeply-nested-lists: vitest exited ${String(run.status)} without running the gate`,
+      `test-deep-tiers: vitest exited ${String(run.status)} without running the gate`,
     );
     return;
   }
-  console.log(`test-deeply-nested-lists: ${String(total)} deep sweep(s) held.`);
+  console.log(`test-deep-tiers: ${String(total)} deep sweep(s) held.`);
 }
 
 const ARGUMENT_START = 2;
@@ -220,12 +218,10 @@ if (wantsHelp(argv)) {
   printUsage(USAGE);
 } else if (argv.length > 0 && !batched) {
   cannotRun(
-    `test-deeply-nested-lists: unexpected arguments: ${argv.join(" ")}\n${USAGE}`,
+    `test-deep-tiers: unexpected arguments: ${argv.join(" ")}\n${USAGE}`,
   );
 } else {
-  const reportDirectory = mkdtempSync(
-    path.join(tmpdir(), "test-deeply-nested-lists-"),
-  );
+  const reportDirectory = mkdtempSync(path.join(tmpdir(), "test-deep-tiers-"));
   try {
     sweep(
       batched ? BATCHED : PER_PUSH,

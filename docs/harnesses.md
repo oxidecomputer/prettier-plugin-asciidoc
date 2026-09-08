@@ -254,7 +254,7 @@ corpus instances).
 Proves: where output moved, the new output still means what the input meant —
 the only harness that proves fidelity per difference.
 
-### `bun run test:deeply-nested-lists` - the deep sweeps
+### `bun run test:deep-tiers` - the deep sweeps that run per push
 
 Runs the per-push half of the `*.deep.test.ts` files under its own vitest
 config, `vitest.sweep.config.ts`. Two tests today, and the runner's floor is
@@ -285,7 +285,7 @@ accepted price of that coverage. For the inline sweep the default tier is now
 the only tier the job runs at all, its deep tier having moved to the batched
 entry.
 
-The list-shape sweep is NOT here. It runs in `bun run test`
+The list-shape sweep has no deep entry. It runs in `bun run test`
 (`tests/format/list-shape-sweep.test.ts`): every nested-list shape the alphabet
 spells to `DEEP_DEPTH`, plus the named shapes whose bodies are longer, each
 formatted twice and rendered on both sides, its failing set pinned by set
@@ -505,8 +505,8 @@ gates over it are tiered by wall time:
   failing row. Its rows are a strict subset of the deep tier below and run again
   there in the same CI job; kept in `bun run test` anyway because a mutation run
   never sees the deep tier (see
-  [the deep sweeps](#bun-run-testdeeply-nested-lists---the-deep-sweeps)).
-- DEEP tier, in `bun run test:deeply-nested-lists`
+  [the per-push deep sweeps](#bun-run-testdeep-tiers---the-deep-sweeps-that-run-per-push)).
+- DEEP tier, in `bun run test:deep-tiers`
   (`tests/conformance/registry-sweep.deep.test.ts`): both grids, each crossed
   with the operator set it declares (`deepTierRows()`) - the standing grid with
   `BYTE_OPERATORS`, the pair grid with the shorter `PAIR_BYTE_OPERATORS`, for
@@ -639,7 +639,7 @@ Two gates over it, tiered by wall time, and the tiers run at different cadences:
   `tests/conformance/inline-sweep-quarantine.json`, one entry per failing row.
   Its rows are a strict subset of the deep tier below, and since that tier left
   the per-push job this is the only inline sweep a push runs (see
-  [the deep sweeps](#bun-run-testdeeply-nested-lists---the-deep-sweeps)).
+  [the per-push deep sweeps](#bun-run-testdeep-tiers---the-deep-sweeps-that-run-per-push)).
 - DEEP tier, in `bun run test:batched-sweeps`
   (`tests/conformance/inline-sweep.deep.test.ts`): that grid under every byte
   operator, plus the whole pair product - any two alphabet members standing in
@@ -1166,12 +1166,13 @@ The slug rule is GitHub's, because GitHub is where these files are read: the
 heading's rendered text, lowercased, with everything that is not a letter, a
 mark, a digit, an underscore, a space or a hyphen dropped, and every remaining
 space turned into a hyphen; a slug a file has already used takes `-1`, then
-`-2`. So `` `bun run test:deeply-nested-lists` - the deep sweeps `` anchors at
-`bun-run-testdeeply-nested-lists---the-deep-sweeps`: the colon vanishes, and the
-blanks around the dropped punctuation stay as hyphens. An em-dash goes the same
-way and leaves two hyphens behind it. The rule was read off GitHub's own
-rendering of these headings rather than off a description of it, and the cases
-in `tests/scripts/internal-anchors.test.ts` are that reading written down.
+`-2`. So `` `bun run test:deep-tiers` - the deep sweeps that run per push ``
+anchors at `bun-run-testdeep-tiers---the-deep-sweeps-that-run-per-push`: the
+colon vanishes, and the blanks around the dropped punctuation stay as hyphens.
+An em-dash goes the same way and leaves two hyphens behind it. The rule was read
+off GitHub's own rendering of these headings rather than off a description of
+it, and the cases in `tests/scripts/internal-anchors.test.ts` are that reading
+written down.
 
 Backticks, asterisks and angle brackets need no undoing, because they are
 punctuation the slug drops either way; a LINK does, because only its label is
@@ -2095,12 +2096,12 @@ the dedicated regression test its issue calls for.
 
 `.github/workflows/ci.yml`, two jobs, split by question rather than by command.
 
-**`gates`** — blocking, needs no other revision: `check`, `lint`, `fmt:check`,
-`build`, `coverage` (the suite runs under it), `metrics`,
-`test:deeply-nested-lists`, `block-structure`, `citation-check`,
-`internal-citations`, `parse-print-addresses`, `printer-reads`. Every step
-carries `if: ${{ !cancelled() }}`, so one failing gate never hides the others.
-The reflow re-classification invariant needs no step of its own: its three gates
+**`gates`** is blocking and needs no other revision: `check`, `lint`,
+`fmt:check`, `build`, `coverage` (the suite runs under it), `metrics`,
+`test:deep-tiers`, `block-structure`, `citation-check`, `internal-citations`,
+`parse-print-addresses`, `printer-reads`. Every step carries
+`if: ${{ !cancelled() }}`, so one failing gate never hides the others. The
+reflow re-classification invariant needs no step of its own: its three gates
 ride the suite that is already there, and `reading-ledger` is a generator, not a
 gate.
 

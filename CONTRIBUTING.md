@@ -38,8 +38,8 @@ instrumented, at ten to seventeen seconds each depending on how loaded the
 machine is - two generated sweeps run inside the suite and both inflate under
 contention - and the rest are a few seconds or less. Together they are exactly
 what CI's blocking `gates` job runs, minus the deep sweeps
-(`bun run test:deeply-nested-lists`, about fifteen seconds); run those too when
-your change touches the shape registry, or anything the reparse ledger hands
+(`bun run test:deep-tiers`, about fifteen seconds); run those too when your
+change touches the shape registry, or anything the reparse ledger hands
 formatted output back to. A change to the parsing or printing of LISTS needs
 nothing extra: the list-shape sweep runs inside `bun run test`, which the
 command above already runs. The inline registry's deep tier is not in that

@@ -35,11 +35,11 @@ function tally(): FragmentTally {
 describe("GitHub's slug of a heading", () => {
   test("a colon is DROPPED, not hyphenated", () => {
     // The rot this gate exists for: `docs/harnesses.md` linked this
-    // very heading as `bun-run-test-deeply-nested-lists-...`, which
-    // resolves nowhere, and nothing said so.
-    expect(slug("`bun run test:deeply-nested-lists` - the deep sweeps")).toBe(
-      "bun-run-testdeeply-nested-lists---the-deep-sweeps",
-    );
+    // very heading as `bun-run-test-deep-tiers-...`, which resolves
+    // nowhere, and nothing said so.
+    expect(
+      slug("`bun run test:deep-tiers` - the deep sweeps that run per push"),
+    ).toBe("bun-run-testdeep-tiers---the-deep-sweeps-that-run-per-push");
   });
 
   test("an em-dash is dropped and leaves the blanks around it", () => {
@@ -178,29 +178,30 @@ describe("holding a fragment to the headings of the file it names", () => {
   const citation = {
     at: "docs/a.md:3",
     file: "docs/a.md",
-    fragment: "bun-run-test-deeply-nested-lists---the-deep-sweeps",
+    fragment: "bun-run-test-deep-tiers---the-deep-sweeps-that-run-per-push",
   };
 
   test("the pre-fix spelling of the colon heading fails, and says where", () => {
     // Red before the change: this exact link was in the tree, resolved
     // nowhere, and every gate passed.
     const anchors = anchorsIn(
-      "### `bun run test:deeply-nested-lists` - the deep sweeps\n",
+      "### `bun run test:deep-tiers` - the deep sweeps that run per push\n",
     );
     expect(checkFragment(citation, anchors)).toEqual([
-      "docs/a.md:3: `#bun-run-test-deeply-nested-lists---the-deep-sweeps` names no heading in docs/a.md",
+      "docs/a.md:3: `#bun-run-test-deep-tiers---the-deep-sweeps-that-run-per-push` names no heading in docs/a.md",
     ]);
   });
 
   test("the spelling GitHub gives that heading holds", () => {
     const anchors = anchorsIn(
-      "### `bun run test:deeply-nested-lists` - the deep sweeps\n",
+      "### `bun run test:deep-tiers` - the deep sweeps that run per push\n",
     );
     expect(
       checkFragment(
         {
           ...citation,
-          fragment: "bun-run-testdeeply-nested-lists---the-deep-sweeps",
+          fragment:
+            "bun-run-testdeep-tiers---the-deep-sweeps-that-run-per-push",
         },
         anchors,
       ),

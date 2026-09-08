@@ -8,9 +8,9 @@
  * A `.deep.test.ts` entry for the reason the registry sweep has one:
  * 133,685 documents formatted twice is more than a suite run on every
  * save can carry and well inside what the blocking deep step
- * (`bun run test:deeply-nested-lists`) can. The default entry gates
- * the same ledger restricted to its corpus rows, so a document cannot
- * be pinned at one tier and not the other.
+ * (`bun run test:deep-tiers`) can. The default entry gates the same
+ * ledger restricted to its corpus rows, so a document cannot be pinned
+ * at one tier and not the other.
  */
 import { describe, expect, test } from "vitest";
 import {
