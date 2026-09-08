@@ -42,6 +42,7 @@ import {
   isIndentedContinuationLine,
   isLiteralLine,
   type LineKind,
+  UNDERLINED_TITLE,
 } from "./classify.js";
 import { blockStartContextIn, type Confinement } from "./scope.js";
 import type { SourceLine } from "./split.js";
@@ -909,7 +910,7 @@ export function paragraphExtent(
     reading: {
       context,
       openList: scan.openList,
-      openingLine: openingLineReading(scan.lines, open, paragraph.end),
+      openingLine: openingLineReading(scan.lines, open),
     },
     end: paragraph.end,
   };
@@ -934,15 +935,17 @@ export function paragraphExtent(
  * compound block's interior a section title is that paragraph's text
  * whatever stands above it, so its two readings agree there.
  *
- * THE NEIGHBOUR IS THE BLOCK'S OWN SECOND LINE, or none, and that is
- * what makes the recorded fact one the output can carry back. The one
- * two-line construct a block start reads is the underlined section
- * title, and the fact says what REPLAYING THIS BLOCK'S LINES
- * preserves: where the underline is also a delimiter it opens a block
- * of its own, this paragraph is the title line alone, and no layout
- * of that one line spells the pair. Recorded as a second reading
- * there, the fact would be gone from the printer's own output and the
- * reparse ledger would carry the difference.
+ * THE NEIGHBOUR IS THE LINE PHYSICALLY BELOW THE BLOCK'S FIRST: its
+ * own second line where the extent held one, and the line that ENDED
+ * the extent where it did not. The one two-line construct a block
+ * start reads is the underlined section title, and an underline that
+ * is also a delimiter ends the paragraph AT the title line, so asking
+ * with the block's own lines alone would answer `sameEitherWay` for
+ * exactly the pair that has two readings (issue #327). The fact still
+ * carries back through the printer's own output: the block that
+ * underline opened is written back where it stood
+ * ({@link underlinesTheTitleAbove}, src/print/join.ts), so the output
+ * re-reads into this same answer.
  *
  * IT WIDENS AS WELL AS NARROWS, and the widening is the half a
  * CONFINED reader feels: `blockStartContextIn` (lines/scope.ts) hands
@@ -952,9 +955,19 @@ export function paragraphExtent(
  * paragraph's text; it is wrong for THIS question, which asks what
  * the line means under a reading the reader did not take, and under
  * which a held floating style makes the pair a heading at every depth
- * (`sectionTitle`, lines/reader.ts). So the block's own second line
- * is supplied wherever the block has one, and the setext arm is asked
- * at every depth rather than at document level alone.
+ * (`sectionTitle`, lines/reader.ts). So the setext arm is asked at
+ * every depth rather than at document level alone.
+ *
+ * WHICH ARM ANSWERED is recorded when the arm is the underlined
+ * title's, because that reading alone spans a SECOND source line
+ * ({@link OpeningLineReading}). Where that line is this block's own -
+ * an underline no delimiter claims - replaying the block's lines is
+ * the whole of what the reading needs, and this value says no more
+ * than the other. Where the underline is also a delimiter it opened a
+ * block of its own, and the printer has that second block to write
+ * back as well. The arm is read off the classifier's own `extent`
+ * ({@link UNDERLINED_TITLE}), the same field the reader spans a real
+ * title's node over, rather than re-tested here.
  *
  * THE SECOND CLASSIFICATION IS NEVER REACHED ON A DOCUMENT WITH NO
  * DIRECTIVES, because it stands behind the walk that looks for a
@@ -963,13 +976,11 @@ export function paragraphExtent(
  * ONCE here and both readings read the bound value.
  * @param lines - the lines the scan walked
  * @param open - where the block opens ({@link ParagraphOpen})
- * @param end - index after everything the extent held
  * @returns what the block records about its own first line
  */
 function openingLineReading(
   lines: readonly SourceLine[],
   open: ParagraphOpen,
-  end: number,
 ): OpeningLineReading {
   if (open.reads === "theReadersFirstLine") {
     return "sameEitherWay";
@@ -978,19 +989,21 @@ function openingLineReading(
   // readings below.
   const substituted = {
     ...open.reader,
-    nextLine: end > open.at + 1 ? lines[open.at + 1].text : undefined,
+    nextLine: lines.at(open.at + 1)?.text,
   };
   if (!substituted.substitutedContentAbove) {
     return "sameEitherWay";
   }
-  const readAs = (context: ReaderContext): LineKind["kind"] =>
-    (open.confined
+  const readAs = (context: ReaderContext): LineKind =>
+    open.confined
       ? insideAConfinedReader(classifyLine(lines[open.at].text, context))
-      : classifyLine(lines[open.at].text, context)
-    ).kind;
-  return readAs(substituted) ===
-    readAs({ ...substituted, substitutedContentAbove: false })
-    ? "sameEitherWay"
+      : classifyLine(lines[open.at].text, context);
+  const deleted = readAs({ ...substituted, substitutedContentAbove: false });
+  if (readAs(substituted).kind === deleted.kind) {
+    return "sameEitherWay";
+  }
+  return deleted.kind === "sectionTitle" && deleted.extent === UNDERLINED_TITLE
+    ? "aSetextTitleWithoutTheSubstitution"
     : "aBlockStartWithoutTheSubstitution";
 }
 

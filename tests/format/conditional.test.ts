@@ -203,10 +203,15 @@ describe("a block-boundary construct under a body-bearing conditional", () => {
   // SOURCE line is refused for the same reason wherever it too has
   // two readings, whatever the packed line spells (issue #309).
   test.each([
+    // RED before #327: `ifndef::zz[body]\nTitle\n\n----\n----\n`.
+    // This underline is a listing delimiter as well, so the pair is a
+    // paragraph and an EMPTY block to the reader and a section title
+    // with nothing under it once the directive is deleted. The
+    // describe block at the foot of this file owns that family.
     [
       "a setext pair",
       "ifndef::zz[body]\nTitle\n-----\n",
-      "ifndef::zz[body]\nTitle\n\n----\n----\n",
+      "ifndef::zz[body]\nTitle\n-----\n",
     ],
     [
       "a heading over text",
@@ -526,6 +531,138 @@ describe("a block start under a substituting directive", () => {
       "--\n[float]\nifdef::x[body]\nTitle\n^^^^^\nmore\n--\n",
     ],
   ])("a heading under %s keeps its own line", async (_n, input) => {
+    await expectFormatted(input, input);
+  });
+});
+
+/**
+ * Issue #327: the underline half of the pair, where the underline is
+ * also a block delimiter.
+ *
+ * Three of the five setext marks open a delimited block at four
+ * characters or more in BOTH programs: `=` an example, `-` a listing,
+ * `+` a passthrough. `^` opens nothing at any length, which is why
+ * the `^^^^^` row above was the whole of the pair for #309. `~` is
+ * the two programs' one disagreement here: `DELIMITED_BLOCKS['~~~~']`
+ * is the oracle's alone (`@asciidoctor/core/build/node/index.cjs`
+ * l.1108) and the reference has no such entry
+ * (`DELIMITED_BLOCKS`, asciidoctor.rb l.278-292), which renders
+ * `~~~~\nx\n~~~~` as a paragraph; the code follows the oracle
+ * (`openBlockTilde`, src/parse/line-shapes.ts, issue #64). The
+ * divergence does not reach the rows below, because it is about the
+ * SUBSTITUTED reading and neither program takes that one here.
+ *
+ * Under the deleted-directive reading `Title` over `-----` is a
+ * section title, and Ruby 2.0.26 renders
+ * `<div class="sect1"> <h2 id="_title">Title</h2> ... <p>more</p>`
+ * for it; `@asciidoctor/core` 4.0.11 agrees, and the two agree on the
+ * tilde spelling of that reading too (a level-2 title). Under the
+ * substituted reading the underline ends the paragraph at the title
+ * line and opens a block of its own, which is the reading our reader
+ * takes.
+ *
+ * The formatter used to write the title as a paragraph, respell the
+ * underline to the delimiter's own length, close the block and put a
+ * blank line between the two:
+ * `<p>Title</p>` over a listing block, which is the substituted
+ * reading and not the other. Every one of those four edits moves the
+ * underline, so the pair's own bytes are the one output both readings
+ * read as the input, and the printer writes them back.
+ */
+describe("a setext underline that is also a delimiter", () => {
+  // RED before #327: each printed the title, a blank line, a
+  // four-character delimiter, the content and a close.
+  test.each([
+    ["an example delimiter", "ifdef::x[body]\nTitle\n=====\nmore\n"],
+    ["a listing delimiter", "ifdef::x[body]\nTitle\n-----\nmore\n"],
+    ["an open-block delimiter", "ifdef::x[body]\nTitle\n~~~~~\nmore\n"],
+    ["a passthrough delimiter", "ifdef::x[body]\nTitle\n+++++\nmore\n"],
+    ["an ifndef body", "ifndef::x[body]\nTitle\n-----\nmore\n"],
+    ["an include", "include::p[]\nTitle\n-----\nmore\n"],
+    [
+      "a block the author closed",
+      "ifdef::x[body]\nTitle\n-----\nmore\n-----\n",
+    ],
+    ["a two-dash open block", "ifdef::x[body]\nT\n--\nmore\n"],
+  ])("%s keeps the pair's own bytes", async (_n, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // The title line's own bytes are the author's here too, and that is
+  // a second thing the pair needs: folding `A  title` to `A title`
+  // shortens the title by one and leaves the underline two longer,
+  // and `setext_section_title?` (parser.rb l.1722-27) admits a pair
+  // only while `(line1.length - line2.length).abs < 2`, so the fold
+  // would take the underline out of tolerance and the title with it.
+  test("a title with a doubled space keeps its spacing", async () => {
+    const input = "ifdef::x[body]\nA  title\n--------\nmore\n";
+    await expectFormatted(input, input);
+  });
+
+  // The CONTROLS, each still normalized: the pair needs the underline
+  // on the line directly below the title, and its length within one
+  // of the title's (the same `.abs < 2`). With no directive above,
+  // the reader reads the pair as the section title it is and prints
+  // the ATX spelling, which is the incumbent behaviour.
+  test.each([
+    [
+      "a blank line under the title",
+      "ifdef::x[body]\nTitle\n\n-----\nmore\n",
+      "ifdef::x[body]\nTitle\n\n----\nmore\n----\n",
+    ],
+    [
+      "an underline five shorter than its title",
+      "ifdef::x[body]\nLongTitle\n----\nmore\n",
+      "ifdef::x[body]\nLongTitle\n\n----\nmore\n----\n",
+    ],
+    [
+      "no directive above the pair",
+      "Title\n-----\nmore\n",
+      "== Title\n\nmore\n",
+    ],
+    [
+      "a directive with no body",
+      "ifdef::x[]\nTitle\n-----\nmore\n",
+      "ifdef::x[]\n== Title\n\nmore\n",
+    ],
+    [
+      "a first line no title arm claims",
+      "ifdef::x[body]\nimage::a[]\n-----\nmore\n",
+      "ifdef::x[body]\nimage::a[]\n\n----\nmore\n----\n",
+    ],
+  ])("%s still normalizes the block", async (_n, input, out) => {
+    await expectFormatted(input, out);
+  });
+
+  // The CONFINED readers, where no section opens and both programs
+  // read the title line as the paragraph's own text whatever stands
+  // above it: one reading, so the block below normalizes as it always
+  // did (`is_next_line_section?` belongs to `next_section`'s loop,
+  // parser.rb l.374, and neither a compound interior nor an item's
+  // buffer is parsed from it).
+  test.each([
+    [
+      "an example block",
+      "====\nifdef::x[body]\nTitle\n-----\nmore\n====\n",
+      "====\nifdef::x[body]\nTitle\n\n----\nmore\n----\n====\n",
+    ],
+    [
+      "a list item",
+      "* item\n+\nifdef::x[body]\nTitle\n-----\nmore\n",
+      "* item\n+\nifdef::x[body]\nTitle\n\n----\nmore\n----\n",
+    ],
+  ])("the pair inside %s normalizes", async (_n, input, out) => {
+    await expectFormatted(input, out);
+  });
+
+  // The line that ends the paragraph need not open a delimited block
+  // at all: a lone `+` is a uniform run of a level mark too, and
+  // `ab` over `+` is an `<h5>` under the deleted reading in both
+  // programs. It reaches the same rule because the neighbour the
+  // reading is asked against is the line PHYSICALLY below the
+  // block's first, whatever ended the extent.
+  test("a lone continuation under a two-character title", async () => {
+    const input = "ifdef::x[body]\nab\n+\nmore\n";
     await expectFormatted(input, input);
   });
 });

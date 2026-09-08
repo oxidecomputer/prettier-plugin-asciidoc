@@ -282,6 +282,22 @@ export interface BlockReading {
  * lines are the one output that renders as the input did under both,
  * so the printer writes those back (`readsBackAsTheBlock`,
  * src/print/reflow.ts).
+ *
+ * THE SETEXT ARM IS NAMED APART because its other reading is TWO
+ * SOURCE LINES, and the second one lands in one of two places. Where
+ * no delimiter claims the underline - `^` claims none at any length,
+ * and a short run of any mark claims none - it is this block's own
+ * second line, the extent held it, and writing the block's lines back
+ * is the whole of what the reading needs; the arm says nothing the
+ * one above it does not. Where the underline IS a delimiter it ends
+ * the paragraph at the title line and opens a block of its own below
+ * it, and writing this block's lines back is then half the answer:
+ * the block under it has to stand where it stood and keep its own
+ * delimiter spelling. Which of the two shapes a pair is is not on
+ * this value: the printer asks it of the two NODES, by whether
+ * anything opens on the line below the title
+ * (`underlinesTheTitleAbove`, src/print/join.ts), and writes that
+ * block back as well where something does (issue #327).
  */
 export type OpeningLineReading =
   /**
@@ -293,4 +309,13 @@ export type OpeningLineReading =
    * Two readings: with nothing substituted above it the line opens a
    * block of its own, and our reader read it as this block's text.
    */
-  | "aBlockStartWithoutTheSubstitution";
+  | "aBlockStartWithoutTheSubstitution"
+  /**
+   * Two readings, and the other one spans the line BELOW as well:
+   * with nothing substituted above it the line is the text of an
+   * underlined section title whose underline is the next line, and
+   * our reader read it as this block's text. Whether that next line
+   * is inside this block or opens the one after it is a fact about
+   * the NODES, not about this value.
+   */
+  | "aSetextTitleWithoutTheSubstitution";

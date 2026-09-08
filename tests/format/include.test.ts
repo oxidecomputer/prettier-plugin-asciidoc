@@ -127,43 +127,33 @@ describe("a block-boundary construct directly under an include", () => {
   });
 
   // Issue #213: the setext pair. `-----` is five dashes, so once
-  // `Title` is paragraph text the underline is a listing DELIMITER -
-  // an empty, unterminated listing block, which is exactly what the
-  // oracle reads and what the printer now spells with a closed pair.
-  test("a setext title under an include is not a heading", async () => {
-    await expectFormatted(
-      "include::p[]\nTitle\n-----\n",
-      "include::p[]\nTitle\n\n----\n----\n",
-    );
-  });
-
-  // The other four underline characters, one per level.
+  // `Title` is paragraph text the underline is a listing DELIMITER
+  // opening an empty, unterminated block, which is what the oracle
+  // reads under the substituted reading. Under the other one the two
+  // lines are a section title with nothing beneath it, and the pair's
+  // own bytes are the only output that reads as both.
+  //
+  // RED before #327 at every level whose mark our reader also reads
+  // as a delimiter: the four rows below printed the title, a blank
+  // line and a closed pair of four-character delimiters.
   test.each([
-    [
-      "level 0",
-      "include::p[]\nTitle\n=====\n",
-      "include::p[]\nTitle\n\n====\n====\n",
-    ],
-    [
-      "level 2",
-      "include::p[]\nTitle\n~~~~~\n",
-      "include::p[]\nTitle\n\n~~~~\n~~~~\n",
-    ],
-    // RED at level 3 alone before the opening-line fact: `^^^^^` is
-    // no delimiter, so the underline stayed inside the paragraph and
-    // the pair packed to `Title ^^^^^`. Both programs render the
-    // input as an `<h4>` where nothing is substituted above it, so
-    // the pair goes back as written (issue #309).
-    ["level 3", "include::p[]\nTitle\n^^^^^\n", "include::p[]\nTitle\n^^^^^\n"],
-    [
-      "level 4",
-      "include::p[]\nTitle\n+++++\n",
-      "include::p[]\nTitle\n\n++++\n++++\n",
-    ],
+    ["level 0", "include::p[]\nTitle\n=====\n"],
+    ["level 1", "include::p[]\nTitle\n-----\n"],
+    // Level 2's delimiter is the ORACLE's and not the reference's
+    // (`openBlockTilde`, src/parse/line-shapes.ts, issue #64); the two
+    // programs still agree on this row's own reading, an underlined
+    // title, which is why the bytes have to stay either way.
+    ["level 2", "include::p[]\nTitle\n~~~~~\n"],
+    // Level 3 alone opens NO block: `^^^^^` is no delimiter, so the
+    // underline stayed inside the paragraph and the pair packed to
+    // `Title ^^^^^` until the reader recorded the opening line's two
+    // readings (issue #309).
+    ["level 3", "include::p[]\nTitle\n^^^^^\n"],
+    ["level 4", "include::p[]\nTitle\n+++++\n"],
   ])(
-    "a %s setext underline under an include is not a heading",
-    async (_name, input, expected) => {
-      await expectFormatted(input, expected);
+    "a %s setext underline under an include keeps the pair's bytes",
+    async (_name, input) => {
+      await expectFormatted(input, input);
     },
   );
 

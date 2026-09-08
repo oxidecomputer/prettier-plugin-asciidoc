@@ -169,6 +169,15 @@ type ParsedMarker =
       readonly calloutNumber: number;
     };
 
+/**
+ * The `extent` an UNDERLINED section title spells; the ATX one spells
+ * 1. Beside the field it names, because two readers ask the same
+ * question of it: which spelling the document header must replay
+ * (lines/reader.ts) and which of a hidden title's two readings spans
+ * the line below (`openingLineReading`, lines/paragraph-reader.ts).
+ */
+export const UNDERLINED_TITLE = 2;
+
 /** What a line IS, in the reader's context. */
 export type LineKind =
   | {

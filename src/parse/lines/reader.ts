@@ -53,6 +53,7 @@ import {
   type LineKind,
   type MarkerKind,
   type SectionTitleKind,
+  UNDERLINED_TITLE,
 } from "./classify.js";
 import { blockExtentOf, delimitedExtent } from "./delimited-reader.js";
 import { readFrontMatter } from "./front-matter.js";
@@ -126,10 +127,6 @@ const textAt = (from: number): TextOpen => ({ from, ...ORDINARY_READING });
 // The heading level `= Title` spells - the only level a document
 // header opens at (`is_next_line_doctitle?`, parser.rb).
 const DOCUMENT_TITLE_LEVEL = 0;
-
-// The title extent an UNDERLINED title spells; the ATX one spells 1.
-// Owned by the classifier's `extent` field (lines/classify.ts).
-const UNDERLINED_TITLE = 2;
 
 /**
  * Reads one line array into blocks. One instance per document — plus

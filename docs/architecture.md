@@ -198,15 +198,17 @@ classifying a whole line in the context where it appears.
   the reader RECORDED for the line that stood there - the reading the site
   writes and, for a marker line, the style of the list the block sits in. No
   pass re-reads the source's bytes for it, and a block whose recorded
-  opening-line reading says its first SOURCE line opens a block of its own once
-  the substituting directive above it is deleted (`BlockReading.openingLine`,
+  opening-line reading says its first SOURCE line means something else once the
+  substituting directive above it is deleted (`BlockReading.openingLine`,
   `src/reader-context.ts`) is written back before that question is asked at all,
-  because no packed line spells both readings. Where the caller writes a prefix
-  in front of that line (a list item's marker, its gap and any checkbox) the
-  prefix is part of the line asked about. The context the question builds is the
-  WIDEST block start, so the accepted set is a subset of the reader's: a
-  paragraph whose first line a substituting directive held off from opening a
-  block comes back as the author's own lines rather than joined.
+  because no packed line spells both readings. One of the two other readings is
+  an underlined section title, whose second line is the block BELOW rather than
+  this one, and the printer writes that block back as well. Where the caller
+  writes a prefix in front of that line (a list item's marker, its gap and any
+  checkbox) the prefix is part of the line asked about. The context the question
+  builds is the WIDEST block start, so the accepted set is a subset of the
+  reader's: a paragraph whose first line a substituting directive held off from
+  opening a block comes back as the author's own lines rather than joined.
 
 Lines are rstripped before classification, exactly as Asciidoctor's
 `Helpers.prepare_source_string` does, and the registry's patterns assume that.
@@ -692,12 +694,12 @@ Every preservation site under case 2 is a normalization candidate. The question
 per construct is never "may we normalize?" but "what derivation preserves the
 meaning?" — decided per construct, landed with render-equality proofs.
 
-Outside those two cases there is exactly one licensed byte-preserving path, and
-it is the AUTHOR's to open, never the formatter's: the `// prettier-ignore`
-pragma (issue #175). A line comment spelling exactly that, written above a
-block, tells the printer to write that block's own source bytes back instead of
-formatting it: the block plus everything nested inside it, and the block
-metadata lines standing between the pragma and the block:
+Outside those two cases there is exactly one licensed byte-preserving path the
+AUTHOR opens rather than the formatter: the `// prettier-ignore` pragma (issue
+#175). A line comment spelling exactly that, written above a block, tells the
+printer to write that block's own source bytes back instead of formatting it:
+the block plus everything nested inside it, and the block metadata lines
+standing between the pragma and the block:
 
 ```asciidoc
 // prettier-ignore
@@ -715,6 +717,21 @@ printer reaches for, and nothing in this repository may write the pragma to
 sidestep a formatting defect. Both properties above still hold across it: the
 pragma line renders nothing, and it survives into the output, so a second pass
 re-derives the mark from the same comment and finds the same normal form.
+
+The same slice serves one case-2 spelling, and the printer opens that one
+itself: the block whose opening line is the UNDERLINE of a section title a
+substituting directive hid from the reader (`underlinesTheTitleAbove`,
+`src/print/join.ts`, issue #327). Under the reading that deletes the directive
+`Title` over `-----` is a section title; under the one that substitutes its body
+the same underline opens a listing, which is the reading our reader takes. The
+delimiter's spelling, the run length and the close are all structure-bearing
+there, because the setext pair holds only while the two lines' lengths differ by
+less than two, so no respelling preserves both readings and the pair's own bytes
+go back. The pair also keeps the author's adjacency: the blank line the printer
+writes between siblings would split the title from its underline. The fact is
+the paragraph's recorded reading, and the bytes that carry it (the directive,
+the title line, the underline) are all re-emitted, so a second pass re-derives
+it.
 
 ### The formal model: an abstract rewriting system
 

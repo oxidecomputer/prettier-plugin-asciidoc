@@ -13,6 +13,7 @@ import type {
   BlockNode,
   DescriptionListItemNode,
   ListItemNode,
+  ParagraphNode,
 } from "../ast.js";
 import {
   isLineComment,
@@ -164,7 +165,72 @@ function shouldStack(blocks: BlockNode[], index: number): boolean {
     stacksOntoAttributeEntry(previous, current) ||
     stacksUnderDocumentHeader(previous, current) ||
     stacksUnderFrontMatter(previous, current) ||
+    stacksUnderAHiddenTitle(previous, current) ||
     stacksAsMetadata(previous, current)
+  );
+}
+
+/**
+ * Whether the pair stacks because it IS one construct under one of
+ * its two readings: a section title whose text is the paragraph's
+ * line and whose underline is the line `current` opens on
+ * ({@link underlinesTheTitleAbove}). A blank line between them spells
+ * a paragraph and a block, which is the other reading and not this
+ * one.
+ *
+ * Named rather than inlined because the ceiling counts
+ * {@link shouldStack}'s operators; the kind test is the narrowing the
+ * recorded reading's type demands.
+ * @param previous - The preceding block node.
+ * @param current - The current block node.
+ * @returns Whether the two should stack.
+ */
+function stacksUnderAHiddenTitle(
+  previous: BlockNode,
+  current: BlockNode,
+): boolean {
+  return (
+    previous.type === "paragraph" &&
+    underlinesTheTitleAbove(previous, current.position.start.line)
+  );
+}
+
+/**
+ * Whether the block opening on `startLine` is the UNDERLINE half of a
+ * section title that a substituting directive hid from the reader.
+ *
+ * The paragraph recorded that its own first line is that title's TEXT
+ * once the directive is deleted
+ * (`aSetextTitleWithoutTheSubstitution`, {@link OpeningLineReading}),
+ * and the underline it recorded the reading against is the line
+ * PHYSICALLY below that first line. So the pair is this paragraph and
+ * whatever opens one line further down: two lines of one construct
+ * under that reading and two nodes under the reader's, which is why
+ * no single node answers and the caller brings both halves.
+ *
+ * The paragraph comes in NARROWED because it is the only kind that
+ * records a reading; the narrowing is the type system's, and the rule
+ * is the two tests below.
+ *
+ * WHAT IT DECIDES, at its two callers. Here, that the pair keeps the
+ * author's adjacency: a blank line between the two spells a paragraph
+ * and a block, which is one of the two readings and not the other. In
+ * the printer (src/print/printer.ts), that the block below writes its
+ * own source bytes back: a respelled delimiter, a close the author
+ * never wrote or a normalized run length each move the underline, and
+ * only the bytes as written read the same under both readings (issue
+ * #327).
+ * @param title - the paragraph standing directly above
+ * @param startLine - the one-based source line the next node opens on
+ * @returns whether the two are one hidden setext title
+ */
+export function underlinesTheTitleAbove(
+  title: ParagraphNode,
+  startLine: number,
+): boolean {
+  return (
+    title.reading.openingLine === "aSetextTitleWithoutTheSubstitution" &&
+    startLine === title.position.start.line + 1
   );
 }
 

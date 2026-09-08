@@ -30,11 +30,12 @@ import {
   PLAIN_WHITESPACE_CONTEXT,
 } from "../whitespace-fact.js";
 import { blockBody, blockLayout, replayLines } from "./reflow.js";
-import { joinBlocks } from "./join.js";
+import { joinBlocks, underlinesTheTitleAbove } from "./join.js";
 import { printsSourceAttributeLine } from "../block-metadata.js";
 import {
   type AnyNode,
   type PrintOptions,
+  type PrintPath,
   printAdmonition,
   printAttributeEntry,
   printComment,
@@ -56,13 +57,26 @@ const {
 } = doc;
 
 /**
- * The bytes to write for a block the author marked with a
- * `// prettier-ignore` line, or undefined for every other node.
+ * The bytes to write for a block this printer writes back as the
+ * author spelled it, or undefined for every other node.
  *
- * The ONE licensed byte-preserving path through this printer, and it
- * is a spelling choice rather than an analysis: the reader already
- * recorded which block the pragma names ({@link ignoredByPragma}) and
- * every node already carries the extent of everything it contains, so
+ * TWO REASONS REACH IT, and neither is an analysis of the bytes. The
+ * author marked the block with a `// prettier-ignore` line, which the
+ * reader recorded ({@link ignoredByPragma}); or this block OPENS on
+ * the underline of a section title a substituting directive hid from
+ * the reader, which the paragraph above it recorded and the pair rule
+ * reads off the two nodes ({@link underlinesTheTitleAbove},
+ * src/print/join.ts). The second reason reaches only the pairs whose
+ * underline is a DELIMITER, because those are the pairs whose second
+ * line opens a node: where the underline opens nothing, the paragraph
+ * held it and writing the paragraph's own lines back is already the
+ * whole answer (`readsBackAsTheBlock`, src/print/reflow.ts). Where it
+ * does open one, the delimiter spelling, the close the author did or
+ * did not write and the delimiter's length are all the author's here:
+ * every one of them moves the underline, and a moved underline is a
+ * different document under the reading that deletes the directive.
+ *
+ * Every node already carries the extent of everything it contains, so
  * the whole implementation is a slice of the text Prettier parsed.
  * Nesting needs no special case for the same reason - a delimited
  * block's extent runs from its opening delimiter to its closing one,
@@ -90,13 +104,26 @@ const {
  * preserve - and only the last newline of all is the document's.
  * Pinned for zero, one, two and three trailing blanks in
  * tests/format/ignore-pragma.test.ts.
- * @param node - the node about to be printed
+ * @param path - the path to the node about to be printed; the node
+ *   standing before it is the other half of the pair rule
  * @param options - the print options, read for the parsed source text
- * @returns the node's own source bytes, or undefined when it carries
- *   no pragma
+ * @returns the node's own source bytes, or undefined when neither
+ *   reason names it
  */
-function ignoredSource(node: AnyNode, options: PrintOptions): Doc | undefined {
-  if (!("ignoredByPragma" in node) || node.ignoredByPragma !== true) {
+function replayedSource(
+  path: PrintPath,
+  options: PrintOptions,
+): Doc | undefined {
+  const { node, previous } = path;
+  const marked = "ignoredByPragma" in node && node.ignoredByPragma === true;
+  // A first sibling's predecessor is typed null and a node that is no
+  // sibling at all comes back undefined, so both absences are tested
+  // by the kind: only a paragraph carries the reading the pair rule
+  // reads, and neither absence is one.
+  const pairs =
+    previous?.type === "paragraph" &&
+    underlinesTheTitleAbove(previous, node.position.start.line);
+  if (!marked && !pairs) {
     return undefined;
   }
   const { start, end } = node.position;
@@ -117,13 +144,13 @@ const printer: Printer<AnyNode> = {
   print(path, options, print): Doc {
     const { node } = path;
 
-    // Asked of every node before anything else, so the pragma reaches
+    // Asked of every node before anything else, so both reasons reach
     // every sequence a reader builds - the document's blocks, a
     // delimited interior's, a list item's attached blocks - without
     // each printing site having to ask for itself.
-    const ignored = ignoredSource(node, options);
-    if (ignored !== undefined) {
-      return ignored;
+    const replayed = replayedSource(path, options);
+    if (replayed !== undefined) {
+      return replayed;
     }
 
     switch (node.type) {

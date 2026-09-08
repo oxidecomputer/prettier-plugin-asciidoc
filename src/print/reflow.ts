@@ -456,7 +456,11 @@ function readsBackAsTheBlock(
  * `para` is a thematic break and a paragraph under one reading and
  * one paragraph under the other; every line the packer could write
  * spells only one of them, so the block's own lines go back and both
- * readings get what they read.
+ * readings get what they read. Which of the two other readings the
+ * reader recorded does not change the refusal: an underlined title's
+ * text is the same one line here, and the block that its underline
+ * opens is written back by the printer's own pair rule
+ * (`underlinesTheTitleAbove`, src/print/join.ts).
  *
  * THE NEIGHBOUR is the line directly under that head, wherever it
  * comes from: the rest of the same run, the block's second output
@@ -474,7 +478,7 @@ function opensTheSameLine(
   lines: readonly PackedLine[],
   layout: Extract<BlockLayout, { readonly reading: BlockReading }>,
 ): boolean {
-  if (layout.reading.openingLine === "aBlockStartWithoutTheSubstitution") {
+  if (layout.reading.openingLine !== "sameEitherWay") {
     return false;
   }
   const first = lines.at(0);
