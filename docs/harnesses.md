@@ -1138,6 +1138,58 @@ exempt and listed at `LINKS_NOT_SCANNED`: they have to write a tag that resolves
 nowhere and one that resolves twice, and a gate reading its own fixtures would
 fail on them.
 
+A fifth scan holds the FRAGMENT LINKS this repository's markdown writes about
+its own headings, over `docs/*.md`, `README.md` and `CONTRIBUTING.md`. This file
+carried a same-file link whose anchor never resolved: the heading spelled a
+colon, GitHub DROPS a colon when it slugs a heading, and the link hyphenated it.
+A reader following it lands at the top of the page and reads the wrong section,
+and nothing said so; a second of the same shape was written before a review
+caught both.
+
+The slug rule is GitHub's, because GitHub is where these files are read: the
+heading's rendered text, lowercased, with everything that is not a letter, a
+mark, a digit, an underscore, a space or a hyphen dropped, and every remaining
+space turned into a hyphen; a slug a file has already used takes `-1`, then
+`-2`. So `` `bun run test:deeply-nested-lists` - the deep sweeps `` anchors at
+`bun-run-testdeeply-nested-lists---the-deep-sweeps`: the colon vanishes, and the
+blanks around the dropped punctuation stay as hyphens. An em-dash goes the same
+way and leaves two hyphens behind it. The rule was read off GitHub's own
+rendering of these headings rather than off a description of it, and the cases
+in `tests/scripts/internal-anchors.test.ts` are that reading written down.
+
+Backticks, asterisks and angle brackets need no undoing, because they are
+punctuation the slug drops either way; a LINK does, because only its label is
+rendered, so a link outside a code span contributes its label alone. Not
+claimed, and none of these headings is in one of those shapes: a reference link,
+an image, and emphasis written with underscores. Headings and links are read
+from PROSE lines only - a fenced block shows shell, markdown and JSON, and a `#`
+opening a shell comment is not a heading while a link in a fenced example is not
+a claim.
+
+Only files the checkout TRACKS are walked, here and in every other scan of this
+gate: a path `.gitignore` names is an operator's own file, not a claim this
+repository makes about itself, and a gate that read one would report a failure
+nobody but that operator could fix and no landing could clear. A working
+directory of notes under `docs/` did exactly that. The patterns are read as
+plain paths (`ignoredIn`, scripts/lib/ignored.ts): a trailing `/` marks a
+directory, a pattern carrying a `/` is anchored to the root, and one that does
+not matches a segment at any depth. A glob or a negation is not claimed and is
+read as no rule, which makes the walk see MORE than git would rather than less,
+because a file wrongly read is a loud failure and a file wrongly skipped is a
+check that silently stopped happening.
+
+A bare `#anchor` names the citing file's own headings; a relative destination
+names another file's, resolved from the citing file's directory the way a
+browser resolves it; a destination with a scheme belongs to whoever serves it
+and is not claimed. A relative destination is held to a FILE first and to a
+heading second, and the two answers differ: a markdown file this checkout does
+not have fails, because a misspelled file name is the commonest way a cross-file
+link rots, and a markdown file that is there and is not scanned (`AGENTS.md`) is
+SKIPPED, for the reason the symbol scan gives about a path it has no file for.
+The files that exist are `docs` and the checkout's own root, which is where this
+repository writes documentation; a destination outside those two is reported as
+no document of this repository, which is what it is.
+
 Exit codes: 0 every citation held, 1 a citation FAILED, 2 could not run - a bad
 argument, a missing scanned file, or fewer than `MINIMUM_CITATIONS`, which means
 the scan lost its roots. The floor counts pins, symbol citations and link tags
@@ -1148,13 +1200,17 @@ tree carries 1,494 today (33 pins, 114 symbols, 1,347 tags), and the smallest of
 the three trees carries 217 of them, so a run that stopped walking any one of
 the three lands at 1,277 or below, and the floor of 1,280 sits in that gap.
 Exactly what it counts: every pin whose file was read, every symbol and every
-tag resolved, and every FAILURE of any of the four scans, the path scan's dead
-paths included. A path that holds is the one thing not counted - there are
-hundreds of them and they would carry the floor on their own. `--list` prints
-every citation with the file and symbol it resolved to and the run it will look
-for. `scripts/internal-citations.ts` and `scripts/internal-symbols.ts`, unit
-tested in `tests/scripts/internal-citations.test.ts` and
-`tests/scripts/internal-symbols.test.ts`.
+tag resolved, and every FAILURE of any of the five scans, the path scan's dead
+paths included. Two things that hold are not counted: a path, because there are
+hundreds of them and they would carry the floor on their own, and a fragment
+link, because there are a dozen and a floor they could move would be one an
+ordinary edit to a document could trip. `--list` prints every citation with the
+file and symbol it resolved to and the run it will look for.
+`scripts/internal-citations.ts`, `scripts/internal-symbols.ts` and
+`scripts/internal-anchors.ts`, unit tested in
+`tests/scripts/internal-citations.test.ts`,
+`tests/scripts/internal-symbols.test.ts` and
+`tests/scripts/internal-anchors.test.ts`.
 
 A pin that quoted nothing would resolve its symbol and stop, and a row in that
 state is one a human has to correct unaided, which is where a wrong hand
@@ -1164,8 +1220,9 @@ gate says so.
 
 Proves: every mutation exception and every coverage deferral names a symbol this
 repository declares and quotes source that symbol still carries, every symbol a
-comment names beside one of this repository's files is a name that file has, and
-every link tag names one place in the tree. It does NOT read the `reason` field
+comment names beside one of this repository's files is a name that file has,
+every link tag names one place in the tree, and every fragment link in these
+documents lands on a heading that is there. It does NOT read the `reason` field
 (free prose, where the next quoted run is as likely to be a function named three
 clauses later); it does not hold a backticked name written with neither a path
 nor a tag, so prose that drops both drops its check with them; and it does not

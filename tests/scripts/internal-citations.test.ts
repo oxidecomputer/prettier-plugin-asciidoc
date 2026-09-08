@@ -52,6 +52,7 @@ function emptyReport(): Report {
     paths: 0,
     symbols: 0,
     links: 0,
+    anchors: 0,
     failures: [],
     listing: [],
   };
@@ -303,6 +304,8 @@ const FIXTURE: Tree = {
     ["tests/alpha.test.ts", HERE],
     ["scripts/alpha.ts", THERE],
   ]),
+  markdown: new Map([["docs/one.md", "## A: b\n[held](#a-b) [dead](#ab)\n"]]),
+  present: new Set(["docs/one.md"]),
 };
 
 describe("the gate over a whole checkout", () => {
@@ -417,8 +420,17 @@ describe("the gate over a whole checkout", () => {
     );
   });
 
+  test("a fragment the heading's slug does not give it fails", () => {
+    // Red before the change: a heading's colon is DROPPED, the link
+    // that hyphenated one resolved nowhere, and every gate was green.
+    expect(report.anchors).toBe(2);
+    expect(report.failures).toContain(
+      "docs/one.md:2: `#ab` names no heading in docs/one.md",
+    );
+  });
+
   test("and nothing else failed", () => {
-    expect(report.failures).toHaveLength(10);
+    expect(report.failures).toHaveLength(11);
   });
 });
 
@@ -475,6 +487,14 @@ describe("what a run earns", () => {
     expect(verdict(report).kind).toBe("failed");
   });
 
+  test("doc fragments are counted but do not carry the floor", () => {
+    // There are a dozen where the tags number four figures, so a floor
+    // they moved would be one a doc edit could trip.
+    const report = emptyReport();
+    report.anchors = MINIMUM_CITATIONS;
+    expect(verdict(report).kind).toBe("cannot-run");
+  });
+
   test("link tags alone can carry the floor", () => {
     // Which the floor's height assumes: the link tags are most of the
     // surface, so a floor they could not reach on their own would be
@@ -502,7 +522,7 @@ describe("what a run earns", () => {
     const said = verdict(report);
     expect(said.kind).toBe("clean");
     expect(said.kind === "clean" ? said.lines.at(-1) : "").toBe(
-      `internal-citations: ${String(MINIMUM_CITATIONS)} symbol pins hold, 0 symbols and 0 link tags resolve, 2 repo paths exist`,
+      `internal-citations: ${String(MINIMUM_CITATIONS)} symbol pins hold, 0 symbols and 0 link tags resolve, 0 doc fragments land on a heading, 2 repo paths exist`,
     );
   });
 });
@@ -534,6 +554,9 @@ describe("this repository", () => {
       true,
     );
     expect(tree.files.has("scripts/internal-citations.ts")).toBe(true);
+    expect(tree.markdown.has("docs/harnesses.md")).toBe(true);
+    expect(tree.markdown.has("CONTRIBUTING.md")).toBe(true);
+    expect(tree.present.has("AGENTS.md")).toBe(true);
     // The path scan still reads `src` alone.
     expect(tree.sources.has("tests/scripts/internal-citations.test.ts")).toBe(
       false,
@@ -563,6 +586,7 @@ describe("this repository", () => {
     expect(report.pins + report.symbols + report.links).toBeGreaterThanOrEqual(
       MINIMUM_CITATIONS,
     );
+    expect(report.anchors).toBeGreaterThanOrEqual(10);
     expect(verdict(report).kind).toBe("clean");
   });
 });

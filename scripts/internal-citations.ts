@@ -22,6 +22,12 @@
  * half and reads the other direction: citations of the Asciidoctor Ruby
  * and of the oracle build, which are sources we do not edit.
  *
+ * The markdown this repository writes about itself makes the same kind
+ * of claim in a different spelling: a fragment link names one of its
+ * own headings. Those are slugged and resolved here too
+ * (`scripts/internal-anchors.ts`), because a link that lands nowhere
+ * is a rotted citation with a `#` in front of it.
+ *
  * A PIN is what both files write: the symbol the excused code sits in,
  * the source text quoted from that symbol's body, and - where the body
  * carries that text more than once - which occurrence is meant. The
@@ -43,6 +49,8 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
+import { ignoredIn, type Ignored } from "./lib/ignored.js";
+import { checkFragments, documentsOf } from "./internal-anchors.js";
 import {
   SYMBOL_SHAPE,
   bodiesIn,
@@ -92,6 +100,11 @@ export const NAMED_ROOTS = ["src", "tests", "scripts"];
  * from 1,250, which was the same gap over a smaller surface, and from
  * 200 before that, when the tags carried no check at all.
  *
+ * The doc fragments are NOT in it. There are a dozen of them where the
+ * tags number four figures, so a floor they could move would be one an
+ * ordinary edit to a document could trip; their own scan is pinned by
+ * its unit tests instead. Their FAILURES count, like every scan's.
+ *
  * Exported so the floor has a test at its boundary
  * (tests/scripts/internal-citations.test.ts); no other consumer.
  * @internal
@@ -134,6 +147,10 @@ export interface Tree {
    * neighbour, and a rename rots both.
    */
   readonly texts: ReadonlyMap<string, string>;
+  /** Every markdown file this gate reads, as written. */
+  readonly markdown: ReadonlyMap<string, string>;
+  /** Every markdown file the checkout HAS, read or not. */
+  readonly present: ReadonlySet<string>;
 }
 
 /** What every pin says, whichever variant it is. */
@@ -338,36 +355,41 @@ export function readTree(root: string): Tree {
     }
     return readFileSync(absolute, "utf8");
   };
-  const files = new Set<string>();
-  for (const tree of NAMED_ROOTS) {
-    for (const relative of walk(root, tree)) {
-      files.add(relative);
-    }
-  }
+  const ignored = ignoredIn(root);
+  const files = new Set(NAMED_ROOTS.flatMap((t) => walk(root, t, ignored)));
   const sources = new Map<string, readonly string[]>();
-  for (const relative of walk(root, SOURCE_ROOT)) {
-    sources.set(relative, sourceLines(bytes(relative)));
+  for (const one of walk(root, SOURCE_ROOT, ignored)) {
+    sources.set(one, sourceLines(bytes(one)));
   }
   const texts = new Map<string, string>();
   for (const relative of files) {
     texts.set(relative, bytes(relative));
   }
+  const documents = documentsOf(root, ignored);
+  const markdown = new Map(
+    documents.scanned.map((one): [string, string] => [one, bytes(one)]),
+  );
   return {
     minimums: bytes(MINIMUMS_FILE),
     lintConfig: bytes(ESLINT_FILE),
     sources,
     files,
     texts,
+    markdown,
+    present: documents.present,
   };
 }
 
 /**
- * Every TypeScript file under one tree, in a stable order.
+ * Every TypeScript file under one tree that the checkout TRACKS, in a
+ * stable order. A path the checkout ignores is not this repository's
+ * to be held to (`ignoredIn`, scripts/lib/ignored.ts).
  * @param root - the repository root
  * @param tree - the directory to walk, relative to the root
+ * @param ignored - whether a path is one the checkout ignores
  * @returns repo-relative paths, sorted
  */
-function walk(root: string, tree: string): string[] {
+function walk(root: string, tree: string, ignored: Ignored): string[] {
   const absolute = path.join(root, tree);
   if (!existsSync(absolute)) {
     return [];
@@ -375,6 +397,7 @@ function walk(root: string, tree: string): string[] {
   return readdirSync(absolute, { recursive: true, encoding: "utf8" })
     .filter((name) => name.endsWith(".ts"))
     .map((name) => path.posix.join(tree, name.replaceAll(path.sep, "/")))
+    .filter((relative) => !ignored(relative))
     .toSorted();
 }
 
@@ -395,6 +418,8 @@ export interface Report {
   symbols: number;
   /** Symbols named in a link tag and held to the tree's index. */
   links: number;
+  /** Markdown fragment links held to a heading of the file they name. */
+  anchors: number;
   /** One line per failure, ready to print. */
   failures: string[];
   /** Every citation read, for `--list`. */
@@ -759,6 +784,7 @@ export function run(tree: Tree): Report {
     paths: 0,
     symbols: 0,
     links: 0,
+    anchors: 0,
     failures: [],
     listing: [],
   };
@@ -767,6 +793,7 @@ export function run(tree: Tree): Report {
   checkLintConfig(report, bodies, tree);
   checkRepoPaths(report, tree);
   checkNames(report, tree);
+  checkFragments(tree.markdown, tree.present, report);
   return report;
 }
 
@@ -815,10 +842,8 @@ export function verdict(report: Report): Verdict {
   const held = report.pins + report.symbols + report.links;
   const total = held + report.failures.length;
   if (total < MINIMUM_CITATIONS) {
-    return {
-      kind: "cannot-run",
-      message: `internal-citations: found only ${String(total)} citations, below the floor of ${String(MINIMUM_CITATIONS)}: the scan lost its roots`,
-    };
+    const lost = `internal-citations: found only ${String(total)} citations, below the floor of ${String(MINIMUM_CITATIONS)}: the scan lost its roots`;
+    return { kind: "cannot-run", message: lost };
   }
   const lines = [...report.failures];
   if (report.failures.length > 0) {
@@ -828,7 +853,7 @@ export function verdict(report: Report): Verdict {
     return { kind: "failed", lines };
   }
   lines.push(
-    `internal-citations: ${String(report.pins)} symbol pins hold, ${String(report.symbols)} symbols and ${String(report.links)} link tags resolve, ${String(report.paths)} repo paths exist`,
+    `internal-citations: ${String(report.pins)} symbol pins hold, ${String(report.symbols)} symbols and ${String(report.links)} link tags resolve, ${String(report.anchors)} doc fragments land on a heading, ${String(report.paths)} repo paths exist`,
   );
   return { kind: "clean", lines };
 }
